@@ -126,7 +126,13 @@ function PayoutEditor({
             <Label htmlFor="status">Status</Label>
             <Select name="status" defaultValue={recipient.status}>
               <SelectTrigger id="status" className="w-full">
-                <SelectValue />
+                <SelectValue>
+                  {recipient.status === "paid"
+                    ? "Paid"
+                    : recipient.status === "cancelled"
+                      ? "Cancelled"
+                      : "Planned"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="planned">Planned</SelectItem>
@@ -219,7 +225,7 @@ function AddRecipientDialog({
             <Label htmlFor="memberId">Member</Label>
             <Select name="memberId">
               <SelectTrigger id="memberId" className="w-full">
-                <SelectValue placeholder="Choose a member" />
+                <SelectValue>Choose a member</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {candidates.map((candidate) => (

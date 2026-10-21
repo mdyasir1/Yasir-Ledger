@@ -41,3 +41,6 @@ yarn-error.log*
 
 # backups contain personal information - never commit them
 /backups
+
+# visual check artefacts
+/screenshots

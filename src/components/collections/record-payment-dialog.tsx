@@ -194,7 +194,10 @@ export function RecordPaymentDialog({
               }}
             >
               <SelectTrigger id="paymentMethod" className="w-full">
-                <SelectValue />
+                <SelectValue>
+                  {PAYMENT_METHODS.find((entry) => entry.value === method)?.label ??
+                    "UPI"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {PAYMENT_METHODS.map((entry) => (

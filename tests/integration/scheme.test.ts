@@ -253,6 +253,7 @@ describe("the seed script", () => {
         rounds: await client.monthlyRound.count(),
         obligations: await client.contributionObligation.count(),
         payouts: await client.payout.count(),
+        payments: await client.payment.count(),
       };
 
       await client.$executeRawUnsafe(seedSql);
@@ -262,6 +263,7 @@ describe("the seed script", () => {
         rounds: await client.monthlyRound.count(),
         obligations: await client.contributionObligation.count(),
         payouts: await client.payout.count(),
+        payments: await client.payment.count(),
       };
 
       expect(after).toEqual(before);
@@ -269,6 +271,8 @@ describe("the seed script", () => {
       expect(after.rounds).toBe(10);
       expect(after.obligations).toBe(170);
       expect(after.payouts).toBe(19);
+      // The seed must never create a payment, whatever is already recorded.
+      expect(after.payments).toBe(before.payments);
     });
   });
 });

@@ -39,6 +39,10 @@ export function RoundSelector({
 
   if (rounds.length === 0) return null;
 
+  // Base UI renders the raw value, so the label is supplied explicitly.
+  const selectedLabel =
+    rounds.find((round) => round.id === selectedId)?.roundName ?? "Select a month";
+
   function handleChange(value: string | null) {
     if (!value) return;
 
@@ -65,7 +69,7 @@ export function RoundSelector({
           className="h-9 w-full min-w-40"
           aria-label="Select the monthly round"
         >
-          <SelectValue placeholder="Select a month" />
+          <SelectValue>{selectedLabel}</SelectValue>
         </SelectTrigger>
         <SelectContent>
           {rounds.map((round) => (

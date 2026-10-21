@@ -111,7 +111,7 @@ export function AppShell({
       {/* Mobile bottom navigation */}
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
       >
         {navigation.map((item) => {
           const active = isActivePath(pathname, item.href);
@@ -122,12 +122,12 @@ export function AppShell({
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium",
+                "flex min-h-14 flex-col items-center justify-center gap-0.5 px-0.5 text-[10px] font-medium",
                 active ? "text-primary" : "text-muted-foreground",
               )}
             >
               <Icon className="size-5" aria-hidden="true" />
-              {item.shortLabel}
+              <span className="truncate">{item.shortLabel}</span>
             </Link>
           );
         })}

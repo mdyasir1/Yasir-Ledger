@@ -5,6 +5,7 @@
  * administrator's real data is untouched.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { PrismaClient } from "@/generated/prisma/client";
 import { recordPayment, reversePayment } from "@/app/actions/payments";
 import { getRoundCollection } from "@/lib/data/collection";
 import { inRolledBackTransaction, testPrisma } from "./helpers";
@@ -49,10 +50,18 @@ vi.mock("next/headers", async () => {
   };
 });
 
-async function fixture() {
-  const round = await testPrisma.monthlyRound.findUnique({
-    where: { year_month: { year: 2026, month: 10 } },
-  });
+const TEST_ROUND_NAME = "Test Round (transient)";
+const TEST_YEAR = 2098;
+const TEST_MONTH = 1;
+
+/**
+ * Builds a throwaway round with a single obligation.
+ *
+ * The tests must not depend on what the administrator has already recorded, so
+ * they work inside a round of their own. It is created inside the transaction
+ * that is rolled back, so it never exists in the committed database.
+ */
+async function fixture(client: PrismaClient) {
   const fatima = await testPrisma.member.findUnique({
     where: { slug: "fatima" },
   });
@@ -60,9 +69,27 @@ async function fixture() {
     where: { slug: "khaise" },
   });
 
-  if (!round || !fatima || !khaise) {
+  if (!fatima || !khaise) {
     throw new Error("The test fixture is missing. Run `npm run db:seed` first.");
   }
+
+  // Remove a leftover of a previous run, if there is one.
+  await client.monthlyRound.deleteMany({ where: { roundName: TEST_ROUND_NAME } });
+
+  const round = await client.monthlyRound.create({
+    data: {
+      year: TEST_YEAR,
+      month: TEST_MONTH,
+      roundName: TEST_ROUND_NAME,
+      collectionTarget: 10_000_000n,
+      status: "open",
+      obligations: {
+        create: [
+          { memberId: fatima.id, expectedAmount: 500_000n, isApplicable: true },
+        ],
+      },
+    },
+  });
 
   return { round, fatima, khaise };
 }
@@ -73,8 +100,8 @@ beforeEach(() => {
 
 describe("recordPayment", () => {
   it("records a full payment and marks the member as paid", async () => {
-    await inRolledBackTransaction(async (_client) => {
-      const { round, fatima } = await fixture();
+    await inRolledBackTransaction(async (client) => {
+      const { round, fatima } = await fixture(client);
 
       const result = await recordPayment({
         roundId: round.id,
@@ -102,8 +129,8 @@ describe("recordPayment", () => {
   });
 
   it("records a partial payment and leaves the rest outstanding", async () => {
-    await inRolledBackTransaction(async (_client) => {
-      const { round, fatima } = await fixture();
+    await inRolledBackTransaction(async (client) => {
+      const { round, fatima } = await fixture(client);
 
       await recordPayment({
         roundId: round.id,
@@ -128,8 +155,8 @@ describe("recordPayment", () => {
   });
 
   it("keeps multiple payments by the same member as separate transactions", async () => {
-    await inRolledBackTransaction(async (_client) => {
-      const { round, fatima } = await fixture();
+    await inRolledBackTransaction(async (client) => {
+      const { round, fatima } = await fixture(client);
 
       await recordPayment({
         roundId: round.id,
@@ -166,8 +193,8 @@ describe("recordPayment", () => {
   });
 
   it("records an overpayment without creating a negative balance", async () => {
-    await inRolledBackTransaction(async (_client) => {
-      const { round, fatima } = await fixture();
+    await inRolledBackTransaction(async (client) => {
+      const { round, fatima } = await fixture(client);
 
       await recordPayment({
         roundId: round.id,
@@ -193,7 +220,7 @@ describe("recordPayment", () => {
 
   it("ignores a repeated submission with the same idempotency key", async () => {
     await inRolledBackTransaction(async (client) => {
-      const { round, fatima } = await fixture();
+      const { round, fatima } = await fixture(client);
 
       const first = await recordPayment({
         roundId: round.id,
@@ -233,7 +260,7 @@ describe("recordPayment", () => {
 
   it("stores the entered date in Asia/Kolkata", async () => {
     await inRolledBackTransaction(async (client) => {
-      const { round, khaise } = await fixture();
+      const { round, khaise } = await fixture(client);
 
       const result = await recordPayment({
         roundId: round.id,
@@ -259,7 +286,7 @@ describe("recordPayment", () => {
 
   it("rejects a zero or negative amount without writing anything", async () => {
     await inRolledBackTransaction(async (client) => {
-      const { round, fatima } = await fixture();
+      const { round, fatima } = await fixture(client);
 
       const result = await recordPayment({
         roundId: round.id,
@@ -286,7 +313,7 @@ describe("recordPayment", () => {
 
   it("rejects an invalid date without writing anything", async () => {
     await inRolledBackTransaction(async (client) => {
-      const { round, fatima } = await fixture();
+      const { round, fatima } = await fixture(client);
 
       const result = await recordPayment({
         roundId: round.id,
@@ -308,9 +335,57 @@ describe("recordPayment", () => {
     });
   });
 
+  it("records a historical transaction in the real October 2026 round", async () => {
+    await inRolledBackTransaction(async (client) => {
+      // The genuine October round, so the requirement is covered end to end.
+      const october = await client.monthlyRound.findUnique({
+        where: { year_month: { year: 2026, month: 10 } },
+      });
+      const khaise = await testPrisma.member.findUnique({
+        where: { slug: "khaise" },
+      });
+
+      if (!october || !khaise) {
+        throw new Error("The test fixture is missing. Run `npm run db:seed` first.");
+      }
+
+      const result = await recordPayment({
+        roundId: october.id,
+        memberId: khaise.id,
+        amountRupees: 2500,
+        paymentMethod: "cash",
+        receivedAt: "2026-10-03T09:15",
+        transactionReference: "CASH-OCT",
+        note: "",
+        idempotencyKey: "test-historical-october",
+      });
+
+      expect(result.ok).toBe(true);
+
+      const payment = await client.payment.findUnique({
+        where: { idempotencyKey: "test-historical-october" },
+      });
+
+      // 3 October 2026, 09:15 in Asia/Kolkata is 03:45 UTC.
+      expect(payment?.receivedAt.toISOString()).toBe("2026-10-03T03:45:00.000Z");
+      expect(payment?.roundId).toBe(october.id);
+
+      // It appears in that round's ledger.
+      const collection = await getRoundCollection(october.id);
+      const inLedger = collection?.payments.find(
+        (entry) => entry.id === payment?.id,
+      );
+
+      expect(inLedger).toBeDefined();
+      expect(inLedger?.roundId).toBe(october.id);
+      expect(inLedger?.memberName).toBe("Khaise");
+      expect(inLedger?.isValid).toBe(true);
+    });
+  });
+
   it("refuses to record a payment without a valid session", async () => {
     await inRolledBackTransaction(async (client) => {
-      const { round, fatima } = await fixture();
+      const { round, fatima } = await fixture(client);
       sessionState.enabled = false;
 
       const result = await recordPayment({
@@ -341,8 +416,8 @@ describe("recordPayment", () => {
 
 describe("reversePayment", () => {
   it("excludes a reversed payment from the collection total", async () => {
-    await inRolledBackTransaction(async (_client) => {
-      const { round, fatima } = await fixture();
+    await inRolledBackTransaction(async (client) => {
+      const { round, fatima } = await fixture(client);
 
       const recorded = await recordPayment({
         roundId: round.id,
@@ -388,7 +463,7 @@ describe("reversePayment", () => {
 
   it("writes an audit entry for the reversal", async () => {
     await inRolledBackTransaction(async (client) => {
-      const { round, fatima } = await fixture();
+      const { round, fatima } = await fixture(client);
 
       const recorded = await recordPayment({
         roundId: round.id,
@@ -418,8 +493,8 @@ describe("reversePayment", () => {
   });
 
   it("refuses to reverse the same payment twice", async () => {
-    await inRolledBackTransaction(async (_client) => {
-      const { round, fatima } = await fixture();
+    await inRolledBackTransaction(async (client) => {
+      const { round, fatima } = await fixture(client);
 
       const recorded = await recordPayment({
         roundId: round.id,
@@ -452,8 +527,8 @@ describe("reversePayment", () => {
   });
 
   it("refuses to reverse a payment without a valid session", async () => {
-    await inRolledBackTransaction(async (_client) => {
-      const { round, fatima } = await fixture();
+    await inRolledBackTransaction(async (client) => {
+      const { round, fatima } = await fixture(client);
 
       const recorded = await recordPayment({
         roundId: round.id,

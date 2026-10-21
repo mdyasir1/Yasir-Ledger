@@ -109,7 +109,9 @@ function RoundDialog({
             <Label htmlFor="status">Status</Label>
             <Select name="status" defaultValue={round.status}>
               <SelectTrigger id="status" className="w-full">
-                <SelectValue />
+                <SelectValue>
+                  {round.status === "closed" ? "Closed" : "Open"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="open">Open</SelectItem>

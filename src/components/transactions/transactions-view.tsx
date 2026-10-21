@@ -109,6 +109,20 @@ export function TransactionsView({
     toast.success(`Exported ${transactions.length} transaction(s).`);
   }
 
+  const roundLabel =
+    options.rounds.find((round) => round.id === currentFilters.roundId)?.roundName ??
+    "All months";
+  const memberLabel =
+    options.members.find((member) => member.id === currentFilters.memberId)
+      ?.fullName ?? "All members";
+  const methodLabel =
+    METHODS.find((entry) => entry.value === (currentFilters.paymentMethod ?? "all"))
+      ?.label ?? "All methods";
+  const statusLabel =
+    currentFilters.status === "valid"
+      ? "Only valid transactions"
+      : "All entries, including reversed";
+
   const total = transactions
     .filter((transaction) => transaction.isValid)
     .reduce((sum, transaction) => sum + transaction.amount, 0);
@@ -137,7 +151,7 @@ export function TransactionsView({
               }
             >
               <SelectTrigger id="filter-round" className="w-full">
-                <SelectValue placeholder="All months" />
+                <SelectValue>{roundLabel}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All months</SelectItem>
@@ -159,7 +173,7 @@ export function TransactionsView({
               }
             >
               <SelectTrigger id="filter-member" className="w-full">
-                <SelectValue placeholder="All members" />
+                <SelectValue>{memberLabel}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All members</SelectItem>
@@ -184,7 +198,7 @@ export function TransactionsView({
               }
             >
               <SelectTrigger id="filter-method" className="w-full">
-                <SelectValue placeholder="All methods" />
+                <SelectValue>{methodLabel}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {METHODS.map((method) => (
@@ -229,7 +243,7 @@ export function TransactionsView({
               }
             >
               <SelectTrigger id="filter-status" className="w-full sm:w-56">
-                <SelectValue />
+                <SelectValue>{statusLabel}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All entries, including reversed</SelectItem>
