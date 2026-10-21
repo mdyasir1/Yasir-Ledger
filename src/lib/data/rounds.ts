@@ -97,3 +97,31 @@ export async function getRoundByPeriod(
 
   return round ? toRoundRow(round) : null;
 }
+
+/**
+ * Resolves the round the administrator is looking at.
+ *
+ * The `round` query parameter wins when it names a real round. Otherwise the
+ * round that contains today's date is used, falling back to the first round.
+ */
+export function resolveSelectedRound(
+  rounds: RoundRow[],
+  roundParam: string | undefined,
+): RoundRow | null {
+  if (rounds.length === 0) return null;
+
+  if (roundParam) {
+    const match = rounds.find((round) => round.id === roundParam);
+    if (match) return match;
+  }
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+
+  const current = rounds.find(
+    (round) => round.year === year && round.month === month,
+  );
+
+  return current ?? rounds[0];
+}

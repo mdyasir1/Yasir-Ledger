@@ -62,6 +62,31 @@ export type RecordPaymentData = {
 };
 
 /**
+ * The form-shaped entry point used by the payment dialog.
+ *
+ * React's `useActionState` requires an action of the form
+ * `(previousState, formData)`, so the form values are read here and handed to
+ * `recordPayment`.
+ */
+export async function recordPaymentForm(
+  _previousState: ActionResult<RecordPaymentData> | undefined,
+  formData: FormData,
+): Promise<ActionResult<RecordPaymentData> | undefined> {
+  return recordPayment({
+    roundId: String(formData.get("roundId") ?? ""),
+    memberId: String(formData.get("memberId") ?? ""),
+    amountRupees: formData.get("amountRupees") as unknown as number,
+    paymentMethod: String(
+      formData.get("paymentMethod") ?? "other",
+    ) as RecordPaymentInput["paymentMethod"],
+    receivedAt: String(formData.get("receivedAt") ?? ""),
+    transactionReference: String(formData.get("transactionReference") ?? ""),
+    note: String(formData.get("note") ?? ""),
+    idempotencyKey: String(formData.get("idempotencyKey") ?? ""),
+  });
+}
+
+/**
  * Records a payment.
  *
  * The submission carries an idempotency key. A repeated submission with the

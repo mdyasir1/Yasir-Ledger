@@ -1,14 +1,10 @@
-import { PageHeader } from "@/components/layout/page-header";
+import { MembersView } from "@/components/members/members-view";
+import { getMemberRows } from "@/lib/data/members";
 
 export const metadata = { title: "Members" };
 
-export default function Page() {
-  return (
-    <div className="space-y-6">
-      <PageHeader title="Members" description="Contribution defaults and payment history for every member." />
-      <p className="text-sm text-muted-foreground">
-        This screen is connected to the database in the next phase.
-      </p>
-    </div>
-  );
+export default async function MembersPage() {
+  const members = await getMemberRows();
+
+  return <MembersView members={members} />;
 }

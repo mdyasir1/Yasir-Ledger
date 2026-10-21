@@ -1,0 +1,395 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+  ChevronDown,
+  ChevronRight,
+  History,
+  IndianRupee,
+  MessageCircle,
+  Phone,
+} from "lucide-react";
+import { StatusBadge } from "@/components/status-badge";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { formatDate, formatDateTime } from "@/lib/datetime";
+import type { MemberPosition, PaymentStatus } from "@/lib/finance/types";
+import { formatPaise } from "@/lib/money";
+import { cn } from "@/lib/utils";
+import type { PaymentRow } from "@/lib/data/collection";
+import { RecordPaymentDialog } from "./record-payment-dialog";
+import { ReminderDialog } from "./reminder-dialog";
+
+type Filter = "all" | "pending" | "partially_paid" | "paid" | "overpaid" | "not_applicable";
+
+const FILTERS: Array<{ value: Filter; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "pending", label: "Pending" },
+  { value: "partially_paid", label: "Partially paid" },
+  { value: "paid", label: "Paid" },
+  { value: "overpaid", label: "Overpaid" },
+  { value: "not_applicable", label: "Not applicable" },
+];
+
+function matchesFilter(status: PaymentStatus, filter: Filter): boolean {
+  if (filter === "all") return true;
+  if (filter === "pending") return status === "not_paid";
+  return status === filter;
+}
+
+/**
+ * The Collections screen.
+ *
+ * On a phone each member is a compact card; on a wide screen the same data is
+ * shown as a table. Both use the same numbers.
+ */
+export function CollectionsView({
+  roundId,
+  roundName,
+  positions,
+  payments,
+}: {
+  roundId: string;
+  roundName: string;
+  positions: MemberPosition[];
+  payments: PaymentRow[];
+}) {
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [paymentTarget, setPaymentTarget] = useState<MemberPosition | null>(null);
+  const [reminderTarget, setReminderTarget] = useState<MemberPosition | null>(null);
+
+  const paymentsByMember = useMemo(() => {
+    const grouped = new Map<string, PaymentRow[]>();
+    for (const payment of payments) {
+      const list = grouped.get(payment.memberId) ?? [];
+      list.push(payment);
+      grouped.set(payment.memberId, list);
+    }
+    return grouped;
+  }, [payments]);
+
+  const visible = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    return positions.filter((position) => {
+      if (!matchesFilter(position.status, filter)) return false;
+      if (!term) return true;
+      return position.fullName.toLowerCase().includes(term);
+    });
+  }, [positions, filter, search]);
+
+  const counts = useMemo(() => {
+    const result: Record<Filter, number> = {
+      all: positions.length,
+      pending: 0,
+      partially_paid: 0,
+      paid: 0,
+      overpaid: 0,
+      not_applicable: 0,
+    };
+    for (const position of positions) {
+      if (position.status === "not_paid") result.pending += 1;
+      else if (position.status !== "not_applicable") result[position.status] += 1;
+    }
+    return result;
+  }, [positions]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search members by name"
+          aria-label="Search members by name"
+          className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-xs"
+        />
+
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter members">
+          {FILTERS.map((entry) => (
+            <button
+              key={entry.value}
+              type="button"
+              onClick={() => setFilter(entry.value)}
+              aria-pressed={filter === entry.value}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                filter === entry.value
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
+            >
+              {entry.label}
+              <span className="ml-1 opacity-70">{counts[entry.value]}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {visible.length === 0 ? (
+        <p className="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
+          No members match this filter.
+        </p>
+      ) : null}
+
+      {/* Mobile: compact cards */}
+      <div className="space-y-2 lg:hidden">
+        {visible.map((position) => {
+          const history = paymentsByMember.get(position.memberId) ?? [];
+          const isOpen = expanded === position.memberId;
+
+          return (
+            <div key={position.memberId} className="rounded-lg border bg-card">
+              <button
+                type="button"
+                onClick={() => setExpanded(isOpen ? null : position.memberId)}
+                className="flex w-full items-center justify-between gap-3 p-3 text-left"
+                aria-expanded={isOpen}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-medium">{position.fullName}</span>
+                    <StatusBadge status={position.status} />
+                  </div>
+                  <p className="mt-1 text-sm tabular-nums text-muted-foreground">
+                    Expected {formatPaise(position.expectedAmount)} · Paid{" "}
+                    {formatPaise(position.paidAmount)}
+                    {position.outstanding > 0 ? (
+                      <>
+                        {" · "}
+                        <span className="font-medium text-red-600 dark:text-red-400">
+                          Due {formatPaise(position.outstanding)}
+                        </span>
+                      </>
+                    ) : null}
+                  </p>
+                </div>
+                {isOpen ? (
+                  <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                )}
+              </button>
+
+              {isOpen ? (
+                <div className="space-y-3 border-t px-3 py-3">
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => setPaymentTarget(position)}
+                    >
+                      <IndianRupee className="size-4" aria-hidden="true" />
+                      Record
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setReminderTarget(position)}
+                    >
+                      <MessageCircle className="size-4" aria-hidden="true" />
+                      Remind
+                    </Button>
+                    {position.phoneNumber ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        render={
+                          <a
+                            href={`tel:${position.phoneNumber.replace(/[^\d+]/g, "")}`}
+                          />
+                        }
+                      >
+                        <Phone className="size-4" aria-hidden="true" />
+                        Call
+                      </Button>
+                    ) : null}
+                  </div>
+
+                  <PaymentHistory history={history} />
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden rounded-lg border lg:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Member</TableHead>
+              <TableHead className="text-right">Expected</TableHead>
+              <TableHead className="text-right">Paid</TableHead>
+              <TableHead className="text-right">Outstanding</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Last payment</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {visible.map((position) => {
+              const history = paymentsByMember.get(position.memberId) ?? [];
+              const isOpen = expanded === position.memberId;
+
+              return (
+                <>
+                  <TableRow key={position.memberId}>
+                    <TableCell className="font-medium">
+                      <button
+                        type="button"
+                        onClick={() => setExpanded(isOpen ? null : position.memberId)}
+                        className="flex items-center gap-1.5 text-left hover:underline"
+                        aria-expanded={isOpen}
+                      >
+                        {isOpen ? (
+                          <ChevronDown className="size-4" aria-hidden="true" />
+                        ) : (
+                          <ChevronRight className="size-4" aria-hidden="true" />
+                        )}
+                        {position.fullName}
+                      </button>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatPaise(position.expectedAmount)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatPaise(position.paidAmount)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {position.outstanding > 0 ? (
+                        <span className="font-medium text-red-600 dark:text-red-400">
+                          {formatPaise(position.outstanding)}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={position.status} />
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {position.latestPaymentAt
+                        ? formatDate(position.latestPaymentAt)
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setPaymentTarget(position)}
+                        >
+                          Record
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Remind ${position.fullName}`}
+                          onClick={() => setReminderTarget(position)}
+                        >
+                          <MessageCircle className="size-4" aria-hidden="true" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+
+                  {isOpen ? (
+                    <TableRow key={`${position.memberId}-history`}>
+                      <TableCell colSpan={7} className="bg-muted/40">
+                        <PaymentHistory history={history} />
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      {paymentTarget ? (
+        <RecordPaymentDialog
+          open={paymentTarget !== null}
+          onOpenChange={(open) => {
+            if (!open) setPaymentTarget(null);
+          }}
+          roundId={roundId}
+          roundName={roundName}
+          memberId={paymentTarget.memberId}
+          memberName={paymentTarget.fullName}
+          outstandingAmount={paymentTarget.outstanding}
+          expectedAmount={paymentTarget.expectedAmount}
+          paidAmount={paymentTarget.paidAmount}
+        />
+      ) : null}
+
+      {reminderTarget ? (
+        <ReminderDialog
+          open={reminderTarget !== null}
+          onOpenChange={(open) => {
+            if (!open) setReminderTarget(null);
+          }}
+          fullName={reminderTarget.fullName}
+          roundName={roundName}
+          position={reminderTarget}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/** The expandable payment history for one member. */
+function PaymentHistory({ history }: { history: PaymentRow[] }) {
+  if (history.length === 0) {
+    return (
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <History className="size-4" aria-hidden="true" />
+        No payments recorded yet.
+      </p>
+    );
+  }
+
+  return (
+    <ul className="space-y-1.5 text-sm">
+      {history.map((payment) => (
+        <li
+          key={payment.id}
+          className="flex flex-wrap items-center justify-between gap-2"
+        >
+          <span className="tabular-nums">{formatPaise(payment.amount)}</span>
+          <span className="text-muted-foreground">
+            {formatDateTime(payment.receivedAt)}
+          </span>
+          <span className="text-muted-foreground capitalize">
+            {payment.paymentMethod.replace("_", " ")}
+          </span>
+          {payment.transactionReference ? (
+            <span className="text-muted-foreground">
+              {payment.transactionReference}
+            </span>
+          ) : null}
+          {payment.isReversal ? (
+            <span className="font-medium text-violet-700 dark:text-violet-300">
+              Reversal entry
+            </span>
+          ) : payment.isReversed ? (
+            <span className="font-medium text-red-700 dark:text-red-300">
+              Reversed
+            </span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+}

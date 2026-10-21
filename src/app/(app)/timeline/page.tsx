@@ -1,14 +1,17 @@
-import { PageHeader } from "@/components/layout/page-header";
+import { TimelineView } from "@/components/timeline/timeline-view";
+import { prisma } from "@/lib/db";
+import { getTimelineRows } from "@/lib/data/timeline";
 
 export const metadata = { title: "Timeline" };
 
-export default function Page() {
-  return (
-    <div className="space-y-6">
-      <PageHeader title="Timeline" description="All ten rounds from October 2026 to July 2027." />
-      <p className="text-sm text-muted-foreground">
-        This screen is connected to the database in the next phase.
-      </p>
-    </div>
-  );
+export default async function TimelinePage() {
+  const [rows, members] = await Promise.all([
+    getTimelineRows(),
+    prisma.member.findMany({
+      select: { id: true, fullName: true },
+      orderBy: { fullName: "asc" },
+    }),
+  ]);
+
+  return <TimelineView rows={rows} members={members} />;
 }

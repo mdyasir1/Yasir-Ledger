@@ -1,14 +1,25 @@
-import { PageHeader } from "@/components/layout/page-header";
+import { SettingsView } from "@/components/settings/settings-view";
+import { prisma } from "@/lib/db";
+import { getRounds } from "@/lib/data/rounds";
+import { toNumber } from "@/lib/data/rounds";
 
 export const metadata = { title: "Settings" };
 
-export default function Page() {
+export default async function SettingsPage() {
+  const [rounds, memberCount, obligationTotals] = await Promise.all([
+    getRounds(),
+    prisma.member.count(),
+    prisma.contributionObligation.aggregate({
+      where: { isApplicable: true },
+      _sum: { expectedAmount: true },
+    }),
+  ]);
+
   return (
-    <div className="space-y-6">
-      <PageHeader title="Settings" description="Scheme configuration and administrator details." />
-      <p className="text-sm text-muted-foreground">
-        This screen is connected to the database in the next phase.
-      </p>
-    </div>
+    <SettingsView
+      rounds={rounds}
+      memberCount={memberCount}
+      totalExpected={toNumber(obligationTotals._sum.expectedAmount)}
+    />
   );
 }
