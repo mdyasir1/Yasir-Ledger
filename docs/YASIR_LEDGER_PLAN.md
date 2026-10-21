@@ -856,7 +856,7 @@ settings live in the dashboard.
 | `DIRECT_URL` | `postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres` |
 | `ADMIN_EMAIL` | The administrator's email |
 | `ADMIN_PASSWORD` | A strong password, different from the development one |
-| `SESSION_SECRET` | 32 or more random bytes, hex encoded |
+| `SESSION_SECRET` | 32 or more random bytes, hex encoded. Generate one with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. It signs the session cookie, so it must be different for production, and it must never be reused or committed |
 
 Optional, only for the RLS check in `npm run db:check`:
 `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. The
@@ -872,7 +872,78 @@ publishable key is public by design. The database password and
 - Set up the backups, as described in section 10.
 - Add a domain if a memorable address is wanted.
 
-### 11.4 Troubleshooting
+### 11.4 Diagnosing a deployment
+
+Three mechanisms exist so that a misconfigured deployment explains itself
+instead of showing a blank error page.
+
+**The platform log.** `src/instrumentation.ts` runs once per server instance,
+before the first request. If a required variable is absent it writes a single
+line:
+
+```
+[Yasir Ledger] Missing environment variables: DATABASE_URL
+```
+
+**The diagnostic endpoint.** `GET /api/health` reports the state of a
+deployment. It is excluded from the route guard so it can answer with JSON,
+and it checks the session itself, returning `401` without a valid cookie, so it
+stays private. The response carries the presence of each required variable by
+name and never its value, whether the database can be reached, the round trip
+time, and the sanitised error.
+
+```json
+{
+  "status": "error",
+  "environment": { "DATABASE_URL": "missing", "DIRECT_URL": "present" },
+  "missing": ["DATABASE_URL"],
+  "database": {
+    "reachable": false,
+    "latencyMs": 42,
+    "error": "Missing required environment variable: DATABASE_URL."
+  }
+}
+```
+
+That last field is the point. It separates a variable that is absent from a
+variable that is present but whose connection fails, which are two different
+problems that look identical from a browser.
+
+**The error screen.** `src/app/(app)/error.tsx` and `src/app/global-error.tsx`
+replace the bare platform error page with a branded panel that explains what
+went wrong in plain language, shows the error, gives the log reference, and
+offers a retry and a link to the diagnostic. In a production build React
+minifies the message of a server error and keeps the real message in the
+server log under the digest, so the screen points at both places rather than
+guessing.
+
+The diagnostic endpoint is part of the layout check, so a deployment that is
+missing a variable fails the check rather than the browser.
+
+### 11.5 Config or Secret
+
+Vercel offers two types for every environment variable. **Config** values stay
+readable to project members after saving. **Secret** values are write-only
+after saving and are redacted from build logs. The type changes nothing about
+which environments receive the value, or about what the application can read
+at runtime. All values are encrypted at rest either way.
+
+The rule for this project:
+
+| Variable | Type | Reason |
+|---|---|---|
+| `DATABASE_URL` | Config | The value has to be read back to verify it when a deployment misbehaves, and it is never sent to a browser because it has no `NEXT_PUBLIC_` prefix |
+| `DIRECT_URL` | Config | Same |
+| `ADMIN_EMAIL` | Config | Not a secret, and it is useful to be able to check which identity a deployment is using |
+| `ADMIN_PASSWORD` | Secret | A password that never needs to be read back |
+| `SESSION_SECRET` | Secret | A key that never needs to be read back. Rotating it signs out every session |
+
+Two Vercel rules matter. A saved Secret cannot be converted to a Config in
+place, it has to be deleted and re-created. And a change to any environment
+variable applies only to new deployments, so a redeploy is always required
+after an edit.
+
+### 11.6 Troubleshooting
 
 | Symptom | Cause and fix |
 |---|---|
@@ -881,6 +952,7 @@ publishable key is public by design. The database password and
 | "current transaction is aborted" | The connection uses a pooler that cannot hold an interactive transaction. Use the session mode pooler for `DIRECT_URL` |
 | "Too many clients" | The runtime pooler is exhausted. Lower `connection_limit` and make sure the Prisma client is one instance per function |
 | "prepare statement" errors | The transaction mode pooler does not support prepared statements. Keep `pgbouncer=true` |
+| The login page works but every other screen shows "This page couldn't load" | The shell and the login page never touch the database, so this is always a database connection problem. Open `/api/health` in a signed-in browser, or look for the `[Yasir Ledger] Missing environment variables` line in the runtime logs |
 
 ---
 
@@ -1084,6 +1156,14 @@ The layout check was extended at the same time, to run every screen in both
 themes and to measure the contrast between text and the surface behind it. The
 bug class is now caught by the test suite rather than by eye.
 
+The first production deployment then failed on every screen that reads the
+database, while the login page and the shell worked perfectly. The cause was
+a `DATABASE_URL` that was absent or wrong on the deployment. Three
+mechanisms were added so that this can never again be a guessing game: the
+cold-start log line, the diagnostic endpoint, and the branded error screens.
+The diagnostic was also added to the layout check, so a deployment that is
+missing a variable now fails a test rather than a browser.
+
 ### The method
 
 - Every phase was verified before the next one started. The Rs 1,00,000 gate
@@ -1187,6 +1267,10 @@ src/components/ui/           the shadcn primitives
 | D19 | The login brand panel uses its own `--brand-panel` token | The primary colour inverts in dark mode, so a panel built on it would be white on white |
 | D20 | `color-scheme` is declared for both themes | Native widgets, including the date picker and autofilled fields, follow the theme |
 | D21 | The layout check covers both themes and measures text contrast | A white heading on a white panel passes a content check, so the contrast has to be measured |
+| D22 | A diagnostic endpoint at `/api/health`, protected by the session | A deployment that is missing a variable must be able to say so, without exposing anything publicly |
+| D23 | A cold-start check in `instrumentation.ts` | The platform log should name the missing variable in one line, rather than a stack trace deep in a page render |
+| D24 | Branded error screens with a retry and a link to the diagnostic | The bare platform error page told the owner nothing actionable |
+| D25 | `DATABASE_URL` is a Config variable, the password and the session secret are Secrets | The connection string has to be readable to be verified, and it is never exposed to a browser |
 
 ### 15.2 Deliberate deviations
 

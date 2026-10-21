@@ -219,6 +219,17 @@ try {
       // The protected screens, with a session.
       await context.addCookies([sessionCookie()]);
 
+      // The deployment diagnostic. It must report a healthy database.
+      const health = await context.request.get(`${baseUrl}/api/health`);
+      const healthBody = await health.json().catch(() => null);
+      check(
+        `${theme.name} ${viewport.name} /api/health reports a healthy deployment`,
+        health.status() === 200 && healthBody?.status === "ok",
+        health.status() === 200
+          ? `status ${healthBody?.status}, database ${healthBody?.database?.reachable ? "reachable" : "NOT reachable"} in ${healthBody?.database?.latencyMs}ms`
+          : `status ${health.status()}, body ${JSON.stringify(healthBody)?.slice(0, 120)}`,
+      );
+
       const page = await context.newPage();
       const consoleErrors = [];
       page.on("console", (message) => {

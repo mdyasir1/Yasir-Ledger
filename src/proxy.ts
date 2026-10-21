@@ -44,7 +44,11 @@ export const config = {
   matcher: [
     /*
      * Everything except Next.js internals and static files.
+     *
+     * `api/health` is excluded so the diagnostic can answer with JSON rather
+     * than a redirect. It checks the session itself and returns 401 without a
+     * valid cookie, so it stays private.
      */
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|webmanifest)$).*)",
+    "/((?!_next/static|_next/image|api/health|favicon.ico|manifest.webmanifest|sw.js|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|webmanifest)$).*)",
   ],
 };
