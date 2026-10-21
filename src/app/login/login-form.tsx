@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Loader2 } from "lucide-react";
 import { login, type LoginState } from "@/app/login/actions";
+import { PasswordInput } from "@/components/password-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,10 +56,9 @@ export function LoginForm({ nextPath = "/dashboard" }: { nextPath?: string }) {
         <Label htmlFor="password" className="text-[0.8125rem] font-medium">
           Password
         </Label>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           autoComplete="current-password"
           required
           className="h-11"

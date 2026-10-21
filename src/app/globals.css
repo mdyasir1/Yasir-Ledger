@@ -90,6 +90,10 @@
   --input: oklch(0.9 0.006 95);
   --ring: oklch(0.276 0.045 274);
 
+  /* The login brand panel. It stays a deep surface in both themes, so the
+     white type on it is always legible. */
+  --brand-panel: oklch(0.262 0.042 272);
+
   --chart-1: oklch(0.55 0.13 160);
   --chart-2: oklch(0.62 0.14 75);
   --chart-3: oklch(0.58 0.16 295);
@@ -132,6 +136,10 @@
   --input: oklch(1 0 0 / 13%);
   --ring: oklch(0.7 0.014 268);
 
+  /* Slightly deeper than the page background, so the split reads as two
+     deliberate surfaces rather than one flat block. */
+  --brand-panel: oklch(0.135 0.011 268);
+
   --chart-1: oklch(0.7 0.13 160);
   --chart-2: oklch(0.75 0.13 75);
   --chart-3: oklch(0.72 0.14 295);
@@ -158,12 +166,35 @@
     -webkit-text-size-adjust: 100%;
   }
 
+  /* Native widgets, including the date picker, scrollbars, and autofilled
+     fields, follow the theme rather than the operating system. */
+  :root {
+    color-scheme: light;
+  }
+
+  .dark {
+    color-scheme: dark;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+  }
+
+  /* Chrome paints its own background over an autofilled field. This covers it
+     with the card colour so the field still belongs to the design. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active,
+  textarea:-webkit-autofill {
+    -webkit-text-fill-color: var(--foreground);
+    -webkit-box-shadow: 0 0 0 1000px var(--card) inset;
+    caret-color: var(--foreground);
+    transition: background-color 6000s ease-in-out 0s;
   }
 
   ::selection {

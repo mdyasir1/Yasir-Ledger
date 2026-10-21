@@ -120,6 +120,7 @@ no charts that do not earn their place.
 | `--foreground` | `oklch(0.222 0.014 268)` | Primary text, deep ink |
 | `--muted-foreground` | `oklch(0.528 0.014 268)` | Secondary text |
 | `--primary` | `oklch(0.276 0.045 274)` | The single accent, deep ink blue |
+| `--brand-panel` | `oklch(0.262 0.042 272)` | The login brand panel, deep in both themes |
 | `--border` | `oklch(0.916 0.005 95)` | Hairlines |
 | `--destructive` | `oklch(0.588 0.19 25)` | Money outstanding, errors |
 
@@ -156,8 +157,22 @@ same treatment rather than being bordered boxes of their own.
 **Dark mode** is supported and follows the system preference on first visit.
 The choice is stored in `localStorage` under `yl-theme` and applied by a small
 inline script in the root layout, so the very first frame is already correct
-and there is no flash. The toggle lives in the sidebar footer on a desktop and
-in the top bar on a phone.
+and there is no flash. The toggle lives in the sidebar footer on a desktop, in
+the top bar on a phone, and in the corner of the login page, so the theme can
+be chosen before signing in. The icon is chosen by CSS rather than by React
+state, so there is no hydration mismatch and the component holds no state.
+
+**The login brand panel** uses its own token, `--brand-panel`, rather than
+`--primary`. The primary colour inverts in dark mode, so a panel built on it
+would become a near-white block with white type on it. The brand panel stays
+deep in both themes, and in dark mode it is a little deeper than the page
+background, so the split reads as two deliberate surfaces.
+
+**Native widgets follow the theme.** `color-scheme` is declared as `light` on
+the root and `dark` on the dark root, so the date picker, the scrollbars, the
+select dropdowns and autofilled fields all render in the right palette. Chrome
+paints its own background over an autofilled field, so the autofill background
+is covered with the card colour and the text colour is restored.
 
 **Motion** is minimal by design. The splash screen fades and rises in once, the
 collection progress bar animates its width, and everything else is instant. All
@@ -166,7 +181,15 @@ animation respects `prefers-reduced-motion`.
 **Touch targets** are at least 36px on desktop and 44px or more for primary
 actions on a phone, which satisfies the requirement for large touch targets.
 
-### 2.3 The splash screen
+### 2.3 The password field
+
+The password field carries a reveal button inside the field on the right, so
+the control never shifts the layout. It is a real button with a label and a
+pressed state, so it is reachable by keyboard and announced correctly. The
+component lives in `src/components/password-input.tsx` and is used by the
+login form.
+
+### 2.4 The splash screen
 
 The application opens on a branded splash while the session is verified and the
 first screen loads.
@@ -641,7 +664,7 @@ in Asia/Kolkata and stored as the correct UTC instant. A payment recorded at
 | Unit | All financial logic, formatting, timezone, session tokens, rate limiting | None |
 | Integration | Server actions against the real schema | Live database, inside a rolled back transaction |
 | End to end | The real login form over HTTP, then every protected screen | Live database, read only |
-| Layout | Every screen at phone, tablet and desktop sizes | Live database, read only |
+| Layout | Every screen, in both themes, at phone, tablet and desktop sizes, including a contrast check that catches text drawn in the wrong colour | Live database, read only |
 
 ### 9.2 The integration tests never touch the real data
 
@@ -694,7 +717,7 @@ The payment engine was not started until this gate passed.
 | 10 | Correct monthly totals | Unit and integration |
 | 11 | Failed network requests | Unit, server action error handling |
 | 12 | Authentication and RLS | Integration and end to end |
-| 13 | Responsive mobile layouts | Layout checks in a real browser |
+| 13 | Responsive mobile layouts | Layout checks in a real browser, in both themes |
 | 14 | Reconciliation calculations | Unit |
 | 15 | Repeatable seed, no duplicate records | Integration and `db:verify` |
 
@@ -708,13 +731,19 @@ npm run build         # production build
 npm run db:check      # connectivity and the publishable key probe
 npm run db:verify     # the scheme release gate
 npm run e2e -- <url>  # the real login form and every protected screen
-npm run visual -- <url>  # 54 layout checks in a real browser
+npm run visual -- <url>  # 168 layout and theme checks in a real browser
 ```
 
 The layout check found three real defects during the build, all of them fixed:
 every select showed its raw value instead of a label, so the month picker
 displayed a UUID. The mobile navigation wrapped onto a second row. And the
 integration tests broke as soon as the administrator recorded real payments.
+
+The check was then extended to run every screen in the dark theme as well, and
+to confirm that text and the surface behind it are different colours. That
+immediately found the login brand panel drawing white type on a near-white
+panel in dark mode, and the input fields washing out because a translucent
+white override was still in place.
 
 ---
 
@@ -1040,6 +1069,21 @@ Tailwind theme, so every `bg-primary` was transparent. The brand panel on the
 login screen was rendering white on white. It is fixed and covered by the
 layout check.
 
+The owner then reported two more faults in the dark theme, both confirmed with
+measured values rather than by eye. The brand panel was drawing white type on
+a near-white panel, because it was built on `--primary`, which inverts in dark
+mode. It now uses its own `--brand-panel` token, deep in both themes. And the
+input fields were washed out, because a translucent white override was still
+in place and no `color-scheme` was declared, so Chrome painted its own
+autofill background. The override was removed, `color-scheme` was declared for
+both themes, and the autofill background is now covered with the card colour.
+A reveal button was added to the password field, and a theme toggle to the
+login page.
+
+The layout check was extended at the same time, to run every screen in both
+themes and to measure the contrast between text and the surface behind it. The
+bug class is now caught by the test suite rather than by eye.
+
 ### The method
 
 - Every phase was verified before the next one started. The Rs 1,00,000 gate
@@ -1140,6 +1184,9 @@ src/components/ui/           the shadcn primitives
 | D16 | Next.js Cache Components switched off | The whole application is authenticated and reads cookies. With Cache Components on, reading cookies outside a Suspense boundary breaks prerendering |
 | D17 | A custom migration runner rather than the Prisma CLI | The Prisma CLI needs a shadow database, and `directUrl` was removed in Prisma 7 |
 | D18 | A dark mode was added | A requirement of the redesign, and the tokens were written for both surfaces from the start |
+| D19 | The login brand panel uses its own `--brand-panel` token | The primary colour inverts in dark mode, so a panel built on it would be white on white |
+| D20 | `color-scheme` is declared for both themes | Native widgets, including the date picker and autofilled fields, follow the theme |
+| D21 | The layout check covers both themes and measures text contrast | A white heading on a white panel passes a content check, so the contrast has to be measured |
 
 ### 15.2 Deliberate deviations
 

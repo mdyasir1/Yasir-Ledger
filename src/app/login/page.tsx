@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { BrandLockup, BrandMark } from "@/components/brand";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { appConfig } from "@/config/app";
 import { getSession } from "@/lib/auth";
 import { LoginForm } from "./login-form";
@@ -30,7 +31,7 @@ export default async function LoginPage({
   return (
     <main className="grid min-h-dvh lg:grid-cols-[1.05fr_1fr]">
       {/* Brand panel */}
-      <section className="relative hidden overflow-hidden bg-primary p-12 lg:flex lg:flex-col lg:justify-between">
+      <section className="relative hidden overflow-hidden bg-[var(--brand-panel)] p-12 lg:flex lg:flex-col lg:justify-between">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_60%_at_20%_10%,rgb(255_255_255/0.14),transparent_60%)]"
@@ -57,19 +58,23 @@ export default async function LoginPage({
           <h1 className="font-display text-[2.6rem] leading-[1.08] font-semibold tracking-[-0.04em] text-white">
             Every rupee of the cheeti, accounted for.
           </h1>
-          <p className="text-[0.9375rem] leading-relaxed text-white/65">
+          <p className="text-[0.9375rem] leading-relaxed text-white/70">
             Track who has paid each month, what is still outstanding, and who
             is due a payout. Private, precise, and built for one administrator.
           </p>
         </div>
 
-        <p className="relative text-[0.75rem] text-white/45">
+        <p className="relative text-[0.75rem] text-white/50">
           {appConfig.loginCredit}
         </p>
       </section>
 
       {/* Form panel */}
-      <section className="flex flex-col items-center justify-center px-5 py-10 sm:px-10">
+      <section className="relative flex flex-col items-center justify-center px-5 py-10 sm:px-10">
+        <div className="absolute top-5 right-5">
+          <ThemeToggle />
+        </div>
+
         <div className="flex w-full max-w-sm flex-col gap-8">
           <div className="flex flex-col items-center gap-4 text-center lg:hidden">
             <BrandMark size="default" />
