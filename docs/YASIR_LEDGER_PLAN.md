@@ -22,14 +22,15 @@
 |---|---|---|
 | 1 | Project setup, auth foundation, data layer | Complete |
 | 2 | Database, RLS, seed, ₹1,00,000 gate | Complete — gate passed |
-| 3 | Financial engine, payment recording, reversals | Complete — 99 tests passing |
+| 3 | Financial engine, payment recording, reversals | Complete — 100 tests passing |
 | 4 | The six screens, connected to live records | Complete |
 | 5 | Search, filters, reminders, contact links, CSV export, PWA | Complete |
 | 6 | Lint, types, tests, build, documentation | Complete |
 
 Verification run at the end of the build: `eslint` 0 problems, `tsc --noEmit`
-clean, 99 tests passing, `next build` succeeding, the end-to-end HTTP check
-passing, and the seeded scheme verified against the live database.
+clean, 100 tests passing, `next build` succeeding, the end-to-end HTTP check
+passing, 54 responsive layout checks passing in a real browser, and the seeded
+scheme verified against the live database.
 
 ---
 
@@ -1152,11 +1153,12 @@ they are not read from `.env.local` in production.
 |---|---|
 | The 17 contributions total ₹1,00,000 | `npm run db:verify` against the live database — 10,000,000 paise, and every round's obligations total the same |
 | The seed is idempotent | The seed was run twice; the row counts did not change. Asserted again in the integration tests. |
-| No payment history is fabricated | The `payments` table contains zero rows after every build step. |
+| No payment history is fabricated | The seed never creates a payment row; this is asserted by the integration test that re-runs the seed and compares the payment count before and after. |
 | The publishable key cannot reach the data | `GET`, `POST` and `DELETE` on all eight tables return 401. Checked by `npm run db:check` and by the integration tests. |
 | The audit trail cannot be rewritten | The integration tests assert that `UPDATE` and `DELETE` on `audit_logs` are both rejected. |
 | Reversed payments leave the totals | Integration test: after a reversal the collected total is 0 and both entries remain in the ledger. |
 | A duplicate submission is not recorded twice | Integration test: the same idempotency key twice produces one row and returns the original payment id. |
 | The route protection works | The end-to-end check replays the real login form: unauthenticated → 307, wrong password → no cookie, correct password → cookie, then every screen renders. |
+| The screens work on a phone | `scripts/visual-check.mjs` drives the installed Chrome through every screen at 390, 768 and 1280 pixels wide, and asserts no horizontal overflow, no missing content and no console errors — 54 checks. It found and fixed three real defects. |
 | The tests do not touch the real data | Every integration test runs inside a rolled-back transaction; the row counts and the audit trail were checked afterwards and were unchanged. |
 | The schema and the code agree | `prisma db pull` shows no drift between `prisma/schema.prisma` and the migrated tables. |

@@ -124,7 +124,7 @@ if (!issued) {
   // 4. The protected screens render the real figures.
   const screens = [
     ["/dashboard", ["Yasir Ledger", "₹1,00,000", "October 2026"]],
-    ["/collections", ["Fatima", "Outstanding", "Not paid"]],
+    ["/collections", ["Fatima", "Zeenata Badeami", "Expected"]],
     ["/members", ["Yasir", "Munni Aunty", "Zeenata Badeami"]],
     ["/timeline", ["October 2026", "July 2027", "Recipients"]],
     ["/transactions", ["Transactions", "Export CSV"]],

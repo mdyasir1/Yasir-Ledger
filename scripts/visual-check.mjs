@@ -31,7 +31,7 @@ const VIEWPORTS = [
 
 const PAGES = [
   { path: "/dashboard", expects: ["Expected", "Collected", "Outstanding"] },
-  { path: "/collections", expects: ["Fatima", "Not paid", "Expected"] },
+  { path: "/collections", expects: ["Fatima", "Zeenata Badeami", "Expected"] },
   { path: "/members", expects: ["Fatima", "Zeenata Badeami"] },
   { path: "/timeline", expects: ["October 2026", "July 2027", "Recipients"] },
   { path: "/transactions", expects: ["Transactions", "Export CSV"] },
