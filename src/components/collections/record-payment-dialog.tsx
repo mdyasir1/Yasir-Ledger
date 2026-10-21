@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Loader2 } from "lucide-react";
+import { Loader2, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { recordPaymentForm } from "@/app/actions/payments";
 import { Button } from "@/components/ui/button";
@@ -57,9 +57,9 @@ function SubmitButton({ disabled }: { disabled: boolean }) {
  * The amount is prefilled with the member's full outstanding balance, so the
  * common case is a single tap. The resulting balance is shown before saving.
  *
- * A random idempotency key is created when the form is opened and reused for
- * every retry, so a double tap or a retried request can never record the same
- * money twice.
+ * The idempotency key is created by the parent when the form is opened and is
+ * reused for every retry, so a double tap or a retried request can never
+ * record the same money twice.
  */
 export function RecordPaymentDialog({
   open,
@@ -71,6 +71,7 @@ export function RecordPaymentDialog({
   outstandingAmount,
   expectedAmount,
   paidAmount,
+  idempotencyKey,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -81,22 +82,30 @@ export function RecordPaymentDialog({
   outstandingAmount: number;
   expectedAmount: number;
   paidAmount: number;
+  idempotencyKey: string;
 }) {
-  const idempotencyKey = useRef<string>("");
-  const [amount, setAmount] = useState<string>("");
-  const [method, setMethod] = useState<string>("upi");
-  const [receivedAt, setReceivedAt] = useState<string>("");
-
-  // Prepare the form each time the dialog opens.
-  useEffect(() => {
-    if (!open) return;
-    idempotencyKey.current = crypto.randomUUID();
-    setAmount(outstandingAmount > 0 ? String(paiseToRupees(outstandingAmount)) : "");
-    setMethod("upi");
-    setReceivedAt(toLocalInputValue(new Date()));
-  }, [open, outstandingAmount]);
+  const [amount, setAmount] = useState(() =>
+    outstandingAmount > 0 ? String(paiseToRupees(outstandingAmount)) : "",
+  );
+  const [method, setMethod] = useState("upi");
+  const [receivedAt, setReceivedAt] = useState(() =>
+    toLocalInputValue(new Date()),
+  );
+  const [isOnline, setIsOnline] = useState(true);
 
   const [state, formAction] = useActionState(recordPaymentForm, undefined);
+
+  // Track connectivity so the form can refuse to submit while offline.
+  useEffect(() => {
+    const update = () => setIsOnline(navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
 
   useEffect(() => {
     if (state?.ok) {
@@ -123,14 +132,23 @@ export function RecordPaymentDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {!isOnline ? (
+          <div
+            role="alert"
+            className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+          >
+            <WifiOff className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <span>
+              You are offline. A payment cannot be saved right now, and
+              nothing will be recorded. Please reconnect and try again.
+            </span>
+          </div>
+        ) : null}
+
         <form action={formAction} className="space-y-4">
           <input type="hidden" name="roundId" value={roundId} />
           <input type="hidden" name="memberId" value={memberId} />
-          <input
-            type="hidden"
-            name="idempotencyKey"
-            value={idempotencyKey.current}
-          />
+          <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
 
           <div className="space-y-2">
             <Label htmlFor="amountRupees">Amount received</Label>
@@ -152,7 +170,9 @@ export function RecordPaymentDialog({
                   type="button"
                   variant="outline"
                   className="shrink-0"
-                  onClick={() => setAmount(String(paiseToRupees(outstandingAmount)))}
+                  onClick={() =>
+                    setAmount(String(paiseToRupees(outstandingAmount)))
+                  }
                 >
                   Full
                 </Button>
@@ -232,7 +252,7 @@ export function RecordPaymentDialog({
             >
               Cancel
             </Button>
-            <SubmitButton disabled={!amountIsValid} />
+            <SubmitButton disabled={!amountIsValid || !isOnline} />
           </DialogFooter>
         </form>
       </DialogContent>

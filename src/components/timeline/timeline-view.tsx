@@ -267,6 +267,12 @@ export function TimelineView({
   const [editing, setEditing] = useState<TimelineRecipient | null>(null);
   const [addingTo, setAddingTo] = useState<TimelineRow | null>(null);
 
+  /** Members who are not already scheduled for the round being edited. */
+  function candidatesFor(row: TimelineRow) {
+    const scheduled = new Set(row.recipients.map((entry) => entry.memberId));
+    return members.filter((member) => !scheduled.has(member.id));
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -276,11 +282,6 @@ export function TimelineView({
 
       <div className="space-y-3">
         {rows.map((row) => {
-          const scheduled = new Set(row.recipients.map((r) => r.memberId));
-          const candidates = members.filter(
-            (member) => !scheduled.has(member.id),
-          );
-
           return (
             <Card key={row.id} className="shadow-none">
               <CardContent className="p-4">
@@ -442,7 +443,7 @@ export function TimelineView({
         <AddRecipientDialog
           roundId={addingTo.id}
           roundName={addingTo.roundName}
-          candidates={members}
+          candidates={candidatesFor(addingTo)}
           onClose={() => setAddingTo(null)}
         />
       ) : null}

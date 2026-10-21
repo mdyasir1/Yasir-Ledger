@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Download, Undo2 } from "lucide-react";
 import { toast } from "sonner";
@@ -64,7 +63,6 @@ export function TransactionsView({
   currentFilters: Record<string, string | undefined>;
 }) {
   const router = useRouter();
-  const [reversing, setReversing] = useState<TransactionRow | null>(null);
 
   function updateFilter(key: string, value: string | null | undefined) {
     if (value === null) return;

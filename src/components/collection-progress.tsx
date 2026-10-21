@@ -1,5 +1,3 @@
-import { cn } from "@/lib/utils";
-
 /** A thin collection progress bar. */
 export function CollectionProgress({
   value,

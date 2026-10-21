@@ -64,7 +64,10 @@ export function CollectionsView({
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [paymentTarget, setPaymentTarget] = useState<MemberPosition | null>(null);
+  const [paymentTarget, setPaymentTarget] = useState<{
+    position: MemberPosition;
+    idempotencyKey: string;
+  } | null>(null);
   const [reminderTarget, setReminderTarget] = useState<MemberPosition | null>(null);
 
   const paymentsByMember = useMemo(() => {
@@ -186,7 +189,12 @@ export function CollectionsView({
                   <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
-                      onClick={() => setPaymentTarget(position)}
+                      onClick={() =>
+                        setPaymentTarget({
+                          position,
+                          idempotencyKey: crypto.randomUUID(),
+                        })
+                      }
                     >
                       <IndianRupee className="size-4" aria-hidden="true" />
                       Record
@@ -288,7 +296,12 @@ export function CollectionsView({
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => setPaymentTarget(position)}
+                          onClick={() =>
+                            setPaymentTarget({
+                              position,
+                              idempotencyKey: crypto.randomUUID(),
+                            })
+                          }
                         >
                           Record
                         </Button>
@@ -326,11 +339,12 @@ export function CollectionsView({
           }}
           roundId={roundId}
           roundName={roundName}
-          memberId={paymentTarget.memberId}
-          memberName={paymentTarget.fullName}
-          outstandingAmount={paymentTarget.outstanding}
-          expectedAmount={paymentTarget.expectedAmount}
-          paidAmount={paymentTarget.paidAmount}
+          memberId={paymentTarget.position.memberId}
+          memberName={paymentTarget.position.fullName}
+          outstandingAmount={paymentTarget.position.outstanding}
+          expectedAmount={paymentTarget.position.expectedAmount}
+          paidAmount={paymentTarget.position.paidAmount}
+          idempotencyKey={paymentTarget.idempotencyKey}
         />
       ) : null}
 
