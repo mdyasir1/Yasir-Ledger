@@ -16,6 +16,7 @@
     "db:seed": "node scripts/seed.mjs",
     "db:verify": "node scripts/verify-seed.mjs",
     "db:check": "node scripts/db-check.mjs",
+    "db:prisma-check": "tsx scripts/prisma-check.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

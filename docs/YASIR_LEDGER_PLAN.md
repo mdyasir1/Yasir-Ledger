@@ -1082,6 +1082,8 @@ before any code was produced, and it is updated as the build progresses.
 | D13 | Next.js 16 `src/proxy.ts` replaces `middleware.ts` | Next.js 16 renamed the convention; proxy runs on the Node runtime |
 | D14 | Product renamed to **Yasir Ledger**; *cheeti* retained as the scheme description | Professional product name while staying unambiguous about purpose (Section 3) |
 | D15 | Branded **splash screen** with a "Y" monogram, product name, description and loader | Requested by the project owner; implemented with text only, no image asset (Section 3.1) |
+| D16 | Next.js **Cache Components disabled** (`cacheComponents` removed from `next.config.ts`) | The whole application is authenticated and reads cookies. With Cache Components on, calling `cookies()` outside a `<Suspense>` boundary breaks prerendering, and `export const dynamic` is removed. Classic dynamic rendering is simpler and predictable here. |
+| D17 | Migration runner is a **custom Node script**, not the Prisma CLI | `prisma migrate dev` requires a shadow database the Supabase free tier cannot create; `directUrl` was also removed in Prisma 7 (Section 7.10) |
 
 ### 25.2 Deliberate deviations from this plan
 
