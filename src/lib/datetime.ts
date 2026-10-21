@@ -3,8 +3,8 @@ import { appConfig } from "@/config/app";
 /**
  * Date and time helpers.
  *
- * The scheme runs in Asia/Kolkata. The server may run in any timezone — Vercel
- * runs in UTC — so a date entered by the administrator must be interpreted as
+ * The scheme runs in Asia/Kolkata. The server may run in any timezone (Vercel
+ * runs in UTC), so a date entered by the administrator must be interpreted as
  * wall-clock time in Asia/Kolkata and stored as the correct UTC instant.
  *
  * Without this, a payment recorded as "21 October 2026, 2:30 pm" would be

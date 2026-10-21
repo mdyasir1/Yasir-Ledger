@@ -1,5 +1,5 @@
 -- =============================================================================
--- Yasir Ledger — idempotent seed
+-- Yasir Ledger, idempotent seed
 --
 -- Loads the 17 members, the ten monthly rounds (October 2026 - July 2027),
 -- the 170 contribution obligations and the 19 scheduled payouts.

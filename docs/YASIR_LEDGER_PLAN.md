@@ -1,1164 +1,1193 @@
 # Yasir Ledger
-## Product Requirements and Implementation Plan
 
-**Project owner:** Yasir  
-**Application:** Yasir Ledger — cheeti contribution scheme manager  
-**Scheme period:** October 2026 – July 2027  
-**Currency:** Indian Rupee (INR)  
-**Timezone:** Asia/Kolkata  
-**Document version:** v2 — updated during implementation setup  
-**Last updated:** 2026-10-21  
+## Project plan, design specification and build record
 
-> **v2 changelog.** Sections 2, 4, 5, 6, 7, 8, 21, 22 and 23 have been revised to
-> reflect the decisions confirmed by the project owner during setup. Section 25
-> ("Decisions, Deviations and Required Configuration") is new and records every
-> confirmed decision, every deliberate deviation from this plan, and the exact
-> configuration the owner must supply. Read Section 25 alongside the rest of this
-> document — it is the authoritative record of what was actually agreed.
+**Project owner:** Yasir
+**Application:** Yasir Ledger, a cheeti contribution scheme manager
+**Scheme period:** October 2026 to July 2027
+**Currency:** Indian Rupee (INR)
+**Timezone:** Asia/Kolkata
+**Document version:** 3
+**Last updated:** 2026-10-21
 
-### Implementation status
-
-| Phase | Scope | State |
-|---|---|---|
-| 1 | Project setup, auth foundation, data layer | Complete |
-| 2 | Database, RLS, seed, ₹1,00,000 gate | Complete — gate passed |
-| 3 | Financial engine, payment recording, reversals | Complete — 100 tests passing |
-| 4 | The six screens, connected to live records | Complete |
-| 5 | Search, filters, reminders, contact links, CSV export, PWA | Complete |
-| 6 | Lint, types, tests, build, documentation | Complete |
-
-Verification run at the end of the build: `eslint` 0 problems, `tsc --noEmit`
-clean, 100 tests passing, `next build` succeeding, the end-to-end HTTP check
-passing, 54 responsive layout checks passing in a real browser, and the seeded
-scheme verified against the live database.
+This is the single reference document for the project. It holds the product
+requirements, the design system, the data model, the security model, the
+operating procedures, the deployment steps, the user guide, and a record of how
+the application was built. Anyone picking the project up, human or otherwise,
+should be able to read this and continue the work without any other file.
 
 ---
 
-## 1. Project Overview
+## Contents
 
-Build a production-ready, mobile-first web application to manage a monthly cheeti contribution scheme.
+1. [What the application is](#1-what-the-application-is)
+2. [Branding and design system](#2-branding-and-design-system)
+3. [The scheme](#3-the-scheme)
+4. [Payout schedule](#4-payout-schedule)
+5. [Data model](#5-data-model)
+6. [Authentication and security](#6-authentication-and-security)
+7. [The screens](#7-the-screens)
+8. [Financial rules](#8-financial-rules)
+9. [Testing](#9-testing)
+10. [Backup and restore](#10-backup-and-restore)
+11. [Deployment](#11-deployment)
+12. [Using the application](#12-using-the-application)
+13. [How it was built](#13-how-it-was-built)
+14. [Repository map](#14-repository-map)
+15. [Decisions and deviations](#15-decisions-and-deviations)
+16. [Outstanding work](#16-outstanding-work)
 
-The application will help the administrator track:
+---
 
-- Who has paid and who has not paid.
-- How much each person is expected to contribute.
-- Full and partial payments.
-- Monthly collection totals and outstanding balances.
-- People who need payment reminders.
-- Monthly payout recipients and payout status.
-- Complete payment history and financial reconciliation.
+## 1. What the application is
 
-The application must use a real Supabase database. Do not build a static dashboard with hardcoded financial data.
+A private, mobile first web application for managing a cheeti. A cheeti is a
+monthly contribution scheme: every member pays a fixed amount each month, the
+round collects a fixed total, and the money is disbursed to the members
+scheduled for that month.
 
-The primary user is the administrator, Yasir, who manages the collections and records payments received from the group.
+The application answers four questions quickly:
 
-### Main objective
+- Who has paid this month, and who has not?
+- How much has been collected, and how much is still outstanding?
+- Who is due a payout, and how much has actually been handed over?
+- What is the complete history of every rupee that moved?
 
-Make payment tracking quick enough to complete from a mobile phone in a few seconds, without manually calculating totals or repeatedly revisiting bank records.
+Every figure is read from a real Supabase PostgreSQL database at the moment the
+screen renders. Nothing is hardcoded, no sample data is displayed as if it were
+real, and no financial total is ever stored as an independently editable value.
 
-## 2. Technology Stack
+The primary user is the administrator, Yasir, who runs the scheme and records
+the payments that members make. The whole workflow is designed around being
+completed on a phone in a few seconds, between other tasks.
 
-Use the following stack (v2 — confirmed during setup):
+### Non goals for the first release
 
-- **Framework:** Next.js 16 App Router (`src/` directory, React Server Components)
-- **Language:** TypeScript 5.9 with strict type checking
-- **Styling:** Tailwind CSS v4
-- **UI components:** shadcn/ui
-- **Icons:** Lucide React
-- **Database:** Supabase PostgreSQL (hosted free-tier project, region `ap-southeast-1`)
-- **ORM / data access:** Prisma 7.10.1 with the `@prisma/adapter-pg` driver adapter
-  (pure-JavaScript `pg` driver — no native engine binary, no Docker, no psql, no Python)
-- **Authentication:** single hard-coded administrator credential held in server-only
-  environment variables, exchanged for an HMAC-signed session cookie
-  (see Section 8 and Section 25 for the deviation from the original Supabase Auth decision)
-- **Database security:** Supabase Row Level Security (RLS) enabled on every financial table,
-  with **no policies granted to `anon`/`authenticated`** so that direct PostgREST access
-  using the project's publishable key returns nothing
-- **Validation:** Zod v4
-- **Forms:** React Hook Form
-- **Data fetching:** TanStack Query where useful; direct Prisma queries in Server Components otherwise
-- **Charts:** Recharts, only where they add value
-- **Hosting:** Vercel
-- **Mobile experience:** Responsive PWA
-- **Testing:** Vitest 5 (unit tests) plus integration tests executed against the live
-  database inside a rolled-back transaction
+- No bank integration. Payments are recorded by hand after the administrator
+  has seen them in the bank or received a notification.
+- No multi user roles or signup. There is one administrator.
+- No offline payment writes. Synchronisation, duplicate prevention and conflict
+  resolution are all hard problems, so the application refuses to pretend it
+  can do them. When the device is offline the form says so plainly and nothing
+  is written.
+- No notifications that are sent automatically. Reminders are composed from
+  live data, edited by the administrator, and sent by hand.
 
-Do not introduce Redux, a separate Express server, microservices, or unnecessary dependencies.
+---
 
-**Do not use Docker, Python, `psql`, or the Supabase CLI.** All database work runs through
-Node.js: the `pg` driver for SQL execution and Prisma for typed queries.
+## 2. Branding and design system
 
-First inspect the existing repository. Preserve useful configuration, conventions and existing code wherever possible.
+### 2.1 Identity
 
-## 3. Application Branding and Publicity
-
-The application should have a clean, trustworthy financial dashboard design.
-
-> **v2 — renamed.** The product is called **Yasir Ledger**. The word *cheeti* is retained as
-> the description of the scheme the application manages, so the product reads as a
-> professional financial tool while remaining unambiguous about what it is for.
-
-Include a subtle owner/organizer credit using the following text:
-
-**"Managed by Yasir"**
-
-### Placement
-
-- Dashboard footer: `Yasir Ledger · Cheeti contribution scheme · Managed by Yasir`
-- Login page footer: `Organized and managed by Yasir`
-- Optional About section: `Yasir Ledger is a private contribution-tracking application for a cheeti scheme, managed by Yasir.`
-
-Keep the branding understated. Do not place the credit inside every member row, payment record, receipt or financial transaction.
-
-Do not use the branding to imply government approval, bank affiliation, financial certification or regulatory endorsement.
-
-Keep the owner name configurable so it can be changed later without modifying multiple components.
-
-Suggested configuration:
-
-- Application name: Yasir Ledger
-- Application description: Cheeti contribution scheme manager
-- Scheme name: Cheeti
-- Owner display name: Yasir
-- Owner credit: Managed by Yasir
-- Currency: INR
-- Locale: en-IN
-- Timezone: Asia/Kolkata
-- Package / repository name: `yasir-ledger`
-
-The credit should not expose private information or personal contact details.
-
-### 3.1 Splash screen (v2)
-
-The application opens on a branded splash screen while the session is verified and the first
-screen loads.
-
-- A monogram logo: the letter **Y**, rendered as text in a rounded square with a subtle
-  gradient and shadow — no image asset is required, so it renders instantly and scales
-  cleanly on every device.
-- Below the logo: the product name **Yasir Ledger**, and beneath it the description
-  **Cheeti contribution scheme manager**.
-- A slim indeterminate loader bar beneath the text.
-- The splash is shown once per app load, then fades out. It is never shown on every route
-  change, and it must never block input or trap the user if it fails to dismiss.
-- The same splash component is used as the loading state of the authenticated shell and of
-  the login page, so the experience is consistent.
-- Respect `prefers-reduced-motion`: the logo and text appear immediately and the loader bar
-  becomes static.
-
-## 4. Scheme Configuration
-
-The scheme runs for ten monthly rounds:
-
-October 2026 through July 2027.
-
-- Monthly collection target: ₹1,00,000
-- Number of members: 17
-- Number of rounds: 10
-- Initial administrator: Yasir
-
-The supplied contribution amounts total exactly ₹1,00,000.
-
-Important: A person's default contribution amount must be distinct from the amount they have actually paid.
-
-The application must never mark someone as paid simply because the month has started or because the total collection is sufficient.
-
-### 4.1 Money representation (v2)
-
-All monetary columns are stored as **integer paise** in a `BIGINT` column — never as
-floating point and never as a decimal string. ₹1,00,000 is stored as `10000000`.
-
-- No rounding error is possible; every amount is an exact integer number of paise.
-- All supplied contribution amounts are exact multiples of ₹500, so no rounding rule is ever needed.
-- Amounts are converted from rupees to paise once, at the input boundary.
-- The Prisma client exposes these columns as `BigInt`; the application converts them to
-  JavaScript `number` at the data-transfer boundary. The maximum representable value
-  (₹21,47,48,364.75) is far beyond the scheme's lifetime totals, so the conversion is safe.
-- Formatting is always performed with `Intl.NumberFormat` using locale `en-IN` and currency `INR`.
-
-### 4.2 Contribution obligation policy (v2)
-
-Every member has a contribution obligation in every round, seeded from that member's
-default contribution amount. This is the only configuration under which each round's
-obligations sum to exactly ₹1,00,000.
-
-- Editing a member's default contribution does **not** alter existing obligations.
-- An obligation can be marked `is_applicable = false` for a round, which produces the
-  "Not Applicable" status for that member in that round.
-- A round's expected collection is always the sum of its applicable obligations, never
-  a hardcoded ₹1,00,000, and never the sum of what happens to have been paid.
-
-## 5. Initial Member Data
-
-Create the following 17 member records.
-
-| Member | Default Monthly Contribution |
-|---|---:|
-| Yasir | ₹10,000 |
-| Ibrahim | ₹10,000 |
-| Rahima | ₹10,000 |
-| Fatima | ₹5,000 |
-| Rahila | ₹5,000 |
-| Hidayat | ₹8,000 |
-| Sajidh | ₹2,000 |
-| Zeenata Badeami | ₹12,500 |
-| Arshad Badeami | ₹5,000 |
-| Khaise | ₹2,500 |
-| Zaakir Aapa | ₹2,500 |
-| Afsar | ₹2,500 |
-| Farhat | ₹5,000 |
-| Shakir | ₹10,000 |
-| Zeenat Aunty | ₹2,500 |
-| Sumayya | ₹2,500 |
-| Munni Aunty | ₹5,000 |
-| **Total** | **₹1,00,000** |
-
-### Data initialization rules
-
-- Use a repeatable, idempotent seed script.
-- Do not create duplicate members if the seed script runs again.
-- Use stable UUIDs or stable lookup keys.
-- Allow names and default contribution amounts to be edited.
-- Phone numbers are optional.
-- Start payment history empty unless the administrator imports confirmed historical transactions.
-- Never fabricate historical payments.
-
-### 5.1 Seeding implementation (v2)
-
-- **Stable lookup key:** each member carries a `slug` column (unique, immutable) used as the
-  upsert key, e.g. `yasir`, `ibrahim`, `zeenata-badeami`. UUIDs are generated by the database
-  default and are never hardcoded in the seed.
-- **Upsert semantics:** the seed uses `INSERT ... ON CONFLICT (slug) DO UPDATE` for members,
-  `ON CONFLICT (year, month)` for rounds, `ON CONFLICT (round_id, member_id)` for obligations
-  and `ON CONFLICT (round_id, recipient_member_id)` for payouts.
-- **Re-running the seed must change nothing** — it must not duplicate rows, and it must not
-  overwrite administrator edits made after the first run (seed only creates missing rows and
-  fills in columns that were never set).
-- **Payments are never seeded.** The `payments` table starts empty, so the application contains
-  no fabricated financial history.
-- **Verification script:** `scripts/verify-seed.mjs` asserts the seeded state against the
-  database and fails loudly if any invariant is violated:
-  1. exactly 17 members, all slugs unique;
-  2. the sum of all `default_contribution_amount` values is exactly `10000000` paise (₹1,00,000);
-  3. exactly 10 rounds, one per month from October 2026 to July 2027;
-  4. every round's `collection_target` is `10000000` paise;
-  5. exactly 170 obligations (17 members × 10 rounds), one per member per round;
-  6. the sum of applicable obligations in **each** round is exactly `10000000` paise;
-  7. exactly 19 payout rows matching the Section 6 schedule;
-  8. zero payment rows.
-- This verification is a **release gate**: the payment engine (Section 12) is not implemented
-  until every assertion above passes.
-
-## 6. Monthly Payout Schedule
-
-Create the following initial monthly rounds and recipient assignments.
-
-| Month | Recipient or Recipients |
+| Element | Value |
 |---|---|
-| October 2026 | Yasir |
-| November 2026 | Ibrahim |
-| December 2026 | Fatima, Rahila |
-| January 2027 | Hidayat, Sajidh |
-| February 2027 | Zeenata Badeami |
-| March 2027 | Arshad, Khaise, Zaakir Aapa |
-| April 2027 | Zeenata Badeami, Afsar, Farhat |
-| May 2027 | Rahima, Rahila |
-| June 2027 | Shakir |
-| July 2027 | Zeenat Aunty, Sumayya, Munni Aunty |
+| Product name | Yasir Ledger |
+| Description | Cheeti contribution scheme manager |
+| Scheme name | Cheeti |
+| Owner | Yasir |
+| Owner credit | Managed by Yasir |
+| Login credit | Organized and managed by Yasir |
+| Currency | INR |
+| Locale | en-IN |
+| Timezone | Asia/Kolkata |
+| Monogram | The letter Y, drawn in type |
 
-### Schedule requirements
+The product name was chosen during the build. The earlier working name was
+"Cheeti Manager". The owner asked for a product that reads like a professional
+tool, while the word cheeti stays in the interface as the description of what
+the tool is for. All branding lives in `src/config/app.ts`, so it can be
+changed in one place.
 
-- Support multiple recipients in one month.
-- Allow recipients and payout amounts to be edited.
-- Store payout amounts independently from contribution amounts.
-- Track planned payout amounts separately from actual disbursements.
-- Allow historical October payments to be entered with their actual dates.
-- Do not assume that every member contributes to every round unless an obligation is configured.
-- Do not assume that a recipient's payout is equal to their personal contribution.
+The credit is deliberately understated. It appears in the application footer and
+on the login page, never inside a member row, a payment record or a receipt.
+Nothing in the branding implies government approval, bank affiliation,
+financial certification or regulatory endorsement.
 
-**Confirmed (v2):** the schedule's `Apsar` refers to the member named **`Afsar`** — it was a
-typo in the source schedule, not a separate person. April 2027 is seeded with
-`Zeenata Badeami, Afsar, Farhat`. In the table above, `Arshad` refers to the member
-`Arshad Badeami`.
+### 2.2 Design language
 
-### 6.1 Initial planned payout amounts (v2)
+The interface is a quiet financial surface. Warm paper background, pure white
+cards, hairline borders, one deep ink accent, and colour used only where it
+carries meaning. The reference points are modern financial tooling rather than
+consumer dashboards: dense but calm, no decoration, no gradients on content,
+no charts that do not earn their place.
 
-Each seeded payout row starts with `planned_amount` equal to **that recipient's own default
-contribution amount**, in paise:
+**Colour tokens** live in `src/app/globals.css` under `:root` and `.dark`.
 
-| Month | Recipient(s) | Planned payout amount(s) | Round total |
+| Token | Light | Purpose |
+|---|---|---|
+| `--background` | `oklch(0.983 0.003 95)` | Page surface, warm off white |
+| `--card` | `oklch(1 0 0)` | Card and panel surface, pure white |
+| `--foreground` | `oklch(0.222 0.014 268)` | Primary text, deep ink |
+| `--muted-foreground` | `oklch(0.528 0.014 268)` | Secondary text |
+| `--primary` | `oklch(0.276 0.045 274)` | The single accent, deep ink blue |
+| `--border` | `oklch(0.916 0.005 95)` | Hairlines |
+| `--destructive` | `oklch(0.588 0.19 25)` | Money outstanding, errors |
+
+Semantic colour is reserved for state and never used decoratively:
+
+| Meaning | Colour |
+|---|---|
+| Paid, collected, positive | Emerald, `text-emerald-600` |
+| Partially paid, needs attention | Amber, `text-amber-600` |
+| Outstanding, critical, destructive | Red, `text-destructive` |
+| Overpaid, reversal entries | Violet, `text-violet-700` |
+
+**Typography.** Three families, all loaded through `next/font`, so there are no
+layout shifts and no third party requests at runtime.
+
+| Role | Family | Use |
+|---|---|---|
+| Display | Inter Tight | Headings, figures, the wordmark. Tight tracking, `[-0.02em]` to `[-0.032em]` |
+| Text | Inter | Body copy, labels, table cells |
+| Mono | JetBrains Mono | Transaction references and technical identifiers only |
+
+Three utility classes carry the typographic system:
+
+- `.display` sets the display family and tight tracking.
+- `.numeric` forces tabular figures with slightly negative tracking, so every
+  column of amounts lines up exactly. It is applied to every money figure.
+- `.eyebrow` is the small uppercase label used above figures and section
+  titles, at 11px with wide tracking.
+
+**Surfaces.** Cards are white with a single hairline ring at six percent ink and
+a very soft shadow defined by the `--shadow-card` token. Tables sit inside the
+same treatment rather than being bordered boxes of their own.
+
+**Dark mode** is supported and follows the system preference on first visit.
+The choice is stored in `localStorage` under `yl-theme` and applied by a small
+inline script in the root layout, so the very first frame is already correct
+and there is no flash. The toggle lives in the sidebar footer on a desktop and
+in the top bar on a phone.
+
+**Motion** is minimal by design. The splash screen fades and rises in once, the
+collection progress bar animates its width, and everything else is instant. All
+animation respects `prefers-reduced-motion`.
+
+**Touch targets** are at least 36px on desktop and 44px or more for primary
+actions on a phone, which satisfies the requirement for large touch targets.
+
+### 2.3 The splash screen
+
+The application opens on a branded splash while the session is verified and the
+first screen loads.
+
+- A monogram: the letter Y in a rounded square, drawn in type, so it is crisp
+  at every density and costs no request.
+- Below it the product name in the display family, then the description.
+- Below that a slim indeterminate loader.
+- A soft radial gradient behind the mark, drawn in CSS.
+
+The splash is the loading state of the authenticated shell and of the login
+page. It appears once per load, never on every navigation, and it never traps
+the user.
+
+---
+
+## 3. The scheme
+
+### 3.1 Configuration
+
+| Setting | Value |
+|---|---|
+| Rounds | 10, October 2026 to July 2027 |
+| Members | 17 |
+| Monthly collection target | Rs 1,00,000 |
+| Initial administrator | Yasir |
+
+### 3.2 Members and default contributions
+
+| Member | Default monthly contribution |
+|---|---:|
+| Yasir | Rs 10,000 |
+| Ibrahim | Rs 10,000 |
+| Rahima | Rs 10,000 |
+| Fatima | Rs 5,000 |
+| Rahila | Rs 5,000 |
+| Hidayat | Rs 8,000 |
+| Sajidh | Rs 2,000 |
+| Zeenata Badeami | Rs 12,500 |
+| Arshad Badeami | Rs 5,000 |
+| Khaise | Rs 2,500 |
+| Zaakir Aapa | Rs 2,500 |
+| Afsar | Rs 2,500 |
+| Farhat | Rs 5,000 |
+| Shakir | Rs 10,000 |
+| Zeenat Aunty | Rs 2,500 |
+| Sumayya | Rs 2,500 |
+| Munni Aunty | Rs 5,000 |
+| **Total** | **Rs 1,00,000** |
+
+The seventeen amounts were checked by hand and by script before any part of the
+payment engine was written. The check is part of the release gate, described in
+section 9.3.
+
+### 3.3 Money representation
+
+Every monetary column is an integer number of **paise** in a `BIGINT` column.
+Rs 1,00,000 is `10000000`. There is no floating point and no decimal anywhere
+in the financial path.
+
+- Amounts are converted from rupees to paise exactly once, at the input
+  boundary, and rounded half up at that point.
+- Every amount in the scheme is a whole multiple of Rs 500, so no rounding rule
+  is ever actually needed.
+- Prisma exposes these columns as `BigInt`. The application converts them to
+  JavaScript numbers at the data transfer boundary. The largest value a double
+  can hold exactly is about Rs 21 crore, which is far beyond the lifetime total
+  of the scheme, so the conversion is safe.
+- Formatting always uses `Intl.NumberFormat` with `en-IN` and `INR`.
+
+### 3.4 Contribution obligations
+
+Every member has an obligation in every round, seeded from their default
+contribution. This is the only configuration under which each round's
+obligations add up to exactly Rs 1,00,000.
+
+- Editing a member's default contribution never changes an existing
+  obligation. Obligations are edited explicitly, one member and one round at a
+  time.
+- An obligation can be marked as not applicable for a round, which produces the
+  "Not applicable" status for that member in that round.
+- A member added later is never back-filled into earlier rounds.
+- A round's expected collection is always the sum of its applicable
+  obligations. It is never the configured target and never the amount that
+  happens to have been paid.
+
+### 3.5 Data initialisation rules
+
+- The seed is repeatable and idempotent. Running it again changes nothing.
+- Members are found by a stable `slug`, never by name.
+- Existing rows are never overwritten, so administrator edits survive a
+  re-seed.
+- Phone numbers are optional.
+- The `payments` table is never seeded. The application contains no fabricated
+  financial history.
+
+---
+
+## 4. Payout schedule
+
+| Month | Recipient or recipients | Planned amount each | Round total |
 |---|---|---|---:|
-| October 2026 | Yasir | 10,00,000 | 10,00,000 |
-| November 2026 | Ibrahim | 10,00,000 | 10,00,000 |
-| December 2026 | Fatima, Rahila | 5,00,000 + 5,00,000 | 10,00,000 |
-| January 2027 | Hidayat, Sajidh | 8,00,000 + 2,00,000 | 10,00,000 |
-| February 2027 | Zeenata Badeami | 12,50,000 | 12,50,000 |
-| March 2027 | Arshad Badeami, Khaise, Zaakir Aapa | 5,00,000 + 2,500 + 2,500 | 10,00,000 |
-| April 2027 | Zeenata Badeami, Afsar, Farhat | 12,50,000 + 2,500 + 5,00,000 | 20,00,000 |
-| May 2027 | Rahima, Rahila | 10,00,000 + 5,00,000 | 15,00,000 |
-| June 2027 | Shakir | 10,00,000 | 10,00,000 |
-| July 2027 | Zeenat Aunty, Sumayya, Munni Aunty | 2,500 + 2,500 + 5,00,000 | 10,00,000 |
-
-(Amounts shown in paise for exactness; ₹1,00,000 = 10,00,000 paise.)
-
-These are **starting values only**. The application never derives a payout amount
-automatically — `planned_amount` is stored, edited on the Timeline screen, and is fully
-independent of `actual_amount`. A round's total planned payout is therefore not expected to
-equal that round's collection target, and no reconciliation warning is raised merely
-because they differ; reconciliation warnings are raised only for the conditions listed in
-Section 10.
-
-## 7. Database Architecture
-
-Create the following normalized PostgreSQL tables.
-
-### 7.1 `members`
-
-Fields:
-
-- `id`
-- `full_name`
-- `phone_number`, nullable
-- `default_contribution_amount`
-- `is_active`
-- `notes`, nullable
-- `created_at`
-- `updated_at`
-
-### 7.2 `monthly_rounds`
-
-Fields:
-
-- `id`
-- `year`
-- `month`
-- `round_name`
-- `collection_target`
-- `status`
-- `notes`, nullable
-- `created_at`
-- `updated_at`
-
-Enforce uniqueness for the year and month combination.
-
-### 7.3 `contribution_obligations`
-
-Fields:
-
-- `id`
-- `round_id`
-- `member_id`
-- `expected_amount`
-- `is_applicable`
-- `notes`, nullable
-- `created_at`
-- `updated_at`
-
-Enforce one obligation per member per round.
-
-Historical obligations must remain unchanged when future contribution defaults are edited.
-
-### 7.4 `payments`
-
-Fields:
-
-- `id`
-- `round_id`
-- `member_id`
-- `amount`
-- `payment_method`
-- `received_at`
-- `transaction_reference`, nullable
-- `note`, nullable
-- `idempotency_key`
-- `created_by`
-- `reversal_of_payment_id`, nullable
-- `created_at`
-
-Requirements:
-
-- Support multiple payments per member per month.
-- Support partial payments.
-- Preserve transaction history.
-- Prevent duplicate submissions.
-- Support corrections and reversals.
-- Exclude reversed transactions from valid collection totals.
-- Record who entered each payment.
-
-### 7.5 `payouts`
-
-Fields:
-
-- `id`
-- `round_id`
-- `recipient_member_id`
-- `planned_amount`
-- `actual_amount`, nullable until confirmed
-- `status`
-- `paid_at`, nullable
-- `transaction_reference`, nullable
-- `note`, nullable
-- `created_at`
-- `updated_at`
-
-Support multiple recipients per monthly round.
-
-### 7.6 `share_groups`
-
-Fields:
-
-- `id`
-- `name`
-- `target_share_amount`
-- `is_active`
-- `created_at`
-- `updated_at`
-
-### 7.7 `share_group_members`
-
-Fields:
-
-- `id`
-- `share_group_id`
-- `member_id`
-- `allocated_amount`
-- `effective_from_round_id`, nullable
-- `effective_until_round_id`, nullable
-
-These tables represent people who combine their contributions to form a larger share, such as ₹5,000 + ₹5,000 or ₹8,000 + ₹2,000.
-
-Group membership must not replace individual contribution obligations or payment transactions.
-
-### 7.8 `audit_logs`
-
-Fields:
-
-- `id`
-- `actor_id`
-- `action`
-- `entity_type`
-- `entity_id`
-- `before_data`, where appropriate
-- `after_data`, where appropriate
-- `created_at`
-
-Record important changes, especially payment reversals, contribution changes and payout changes.
-
-### Database implementation rules
-
-- Use UUID primary keys.
-- Add foreign keys and appropriate indexes.
-- Add database constraints for valid amounts and unique relationships.
-- Use integer paise or another exact representation for financial calculations.
-- Keep financial calculations on trusted server-side logic or in reliable database queries.
-- Create version-controlled SQL migrations.
-- Keep seed scripts repeatable.
-- Do not store derived collection totals as independently editable values.
-
-### 7.9 Column-level implementation notes (v2)
-
-- **Money columns:** every monetary column is `BIGINT` holding paise, with a `CHECK` constraint
-  preventing negative values (`payments.amount` additionally requires `> 0`).
-- **`members.slug`:** added as a `TEXT UNIQUE` column. It is the stable lookup key for seeding
-  and is immutable after creation. The plan's `full_name` and all other columns are unchanged.
-- **`payments.idempotency_key`:** `TEXT NOT NULL UNIQUE`. This is the database-level guarantee
-  behind "prevent duplicate submissions" — a retried insert fails on the unique index rather
-  than creating a second transaction, and the server returns the already-stored payment.
-- **`payments.reversal_of_payment_id`:** self-referencing foreign key with a `CHECK` constraint
-  preventing self-reference.
-- **`monthly_rounds` uniqueness:** enforced by `UNIQUE (year, month)` and a `CHECK (month BETWEEN 1 AND 12)`.
-- **`contribution_obligations` uniqueness:** enforced by `UNIQUE (round_id, member_id)`.
-- **`payouts` uniqueness:** enforced by `UNIQUE (round_id, recipient_member_id)`.
-- **`created_by` / `actor_id`:** because there is exactly one administrator (Section 8), these
-  columns store a single fixed actor identifier,
-  `00000000-0000-4000-8000-000000000001`, rather than a reference into `auth.users`. The audit
-  trail still records *who* acted, and the column remains a UUID for future multi-user use.
-- **`updated_at`:** maintained by a `BEFORE UPDATE` trigger on `members`, `monthly_rounds`,
-  `contribution_obligations`, `payouts`, `share_groups` and `share_group_members`.
-- **Indexes:** on every foreign key (`payments.round_id`, `payments.member_id`,
-  `contribution_obligations.member_id`, `payouts.recipient_member_id`,
-  `share_group_members.member_id`), on `payments.received_at`, and on
-  `payments (round_id, member_id)` for the per-member collection screen.
-
-### 7.10 Migration mechanism (v2)
-
-- **Source of truth for schema:** hand-authored, version-controlled SQL files in
-  `supabase/migrations/`, named `<timestamp>_<description>.sql`, applied in filename order.
-- **Application:** `scripts/migrate.mjs`, using the pure-JavaScript `pg` driver. It applies
-  each file inside a transaction and records it in a `schema_migrations` ledger table
-  (`version` primary key, `name`, `checksum`, `applied_at`). A file whose checksum has changed
-  is reported as an error rather than silently re-applied.
-- Prisma's own `migrate dev` is **not** used, because it requires a shadow database that the
-  Supabase free tier does not permit creating.
-- **Prisma's role:** `prisma/schema.prisma` mirrors the migrated schema and is used to generate
-  the typed query client (`prisma generate` → `src/generated/prisma/client`). It is the query
-  layer, not the migration layer.
-- `npx prisma db pull` is used as a drift check: if the schema and the database ever disagree,
-  the difference is detected in CI rather than at runtime.
-
-### 7.11 Row Level Security implementation (v2)
-
-- RLS is enabled on **every** table in `public`, including all nine financial tables.
-- **No policy is created for `anon` or `authenticated`.** With RLS enabled and no matching
-  policy, those roles see zero rows and can perform no inserts, updates or deletes. This is
-  deliberate: the project's publishable key is public by nature, and this guarantees that
-  direct PostgREST access with it cannot read or modify financial data.
-- The application connects as the `postgres` role, which holds `BYPASSRLS`, so Prisma queries
-  are not filtered by RLS. **The effective administrator check is therefore the session cookie
-  enforced in `src/proxy.ts` and in every server action** — see Sections 8 and 25.
-- `audit_logs` additionally has no `UPDATE` or `DELETE` policy for any role, so the audit trail
-  is append-only even for the application role.
-- `revoke` is applied to sensitive functions from `anon`/`authenticated`.
-
-## 8. Authentication and Security
-
-Implement a secure administrator login using Supabase Auth.
-
-> **v2 — this section has been revised.** The project owner confirmed that the application is
-> for a single administrator only and asked for a hard-coded credential with no signup flow,
-> no user management and no Supabase Auth dependency. The requirement "protect all
-> application routes" and the requirement "restrict access to authorized administrators" are
-> **retained in full** and are met by the mechanism below. The deviation is recorded in
-> Section 25 and the security rationale is documented in `SECURITY.md`.
-
-### 8.1 Administrator authentication (v2)
-
-- The administrator credential is held in **server-only environment variables**:
-  `ADMIN_EMAIL` and `ADMIN_PASSWORD`. Neither uses a `NEXT_PUBLIC_` prefix, so neither is
-  ever included in the browser bundle. The values are never committed to git — `.env.local`
-  is gitignored and `.env.example` contains names and placeholders only.
-- The login form compares the submitted values against the configured values using
-  `crypto.timingSafeEqual` over fixed-length buffers, so comparison time does not leak
-  information about the stored value.
-- On success, the server issues a **signed session cookie**:
-  - payload = `base64url(JSON { email, issuedAt, expiresAt })`
-  - signature = `base64url(HMAC-SHA256(payload, SESSION_SECRET))`, minimum 256-bit secret
-  - cookie attributes: `HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure` in production,
-    7-day lifetime with sliding renewal
-- The signature is verified with `crypto.timingSafeEqual` on every request. Any tampering
-  with the payload invalidates the cookie.
-- A small in-process rate limiter throttles repeated failed logins per client address
-  (5 attempts per 15 minutes) to make online guessing impractical.
-- A logout action clears the cookie and invalidates the session.
-- The credential check lives in exactly one module (`src/lib/auth.ts`) so that switching to
-  Supabase Auth later is a single-module change.
-
-### 8.2 Authorization (v2)
-
-- **Every** route except `/login` and the static assets requires a valid session. The check
-  runs in `src/proxy.ts` (Next.js 16's replacement for `middleware.ts`), which redirects
-  unauthenticated requests to `/login`.
-- Route protection alone is not trusted as the security boundary: **every server action
-  re-verifies the session** before performing any mutation. A request that bypasses the proxy
-  still cannot write to the database.
-- All data access happens on the server through Prisma. No database credentials, publishable
-  key or session secret is ever exposed to the browser.
-- The application's own client-side data fetching uses only the authenticated server
-  (React Server Components and server actions), so there is no unauthenticated data channel.
-
-### 8.3 Database security (v2)
-
-- RLS is enabled on every private financial table, with **no policies for
-  `anon`/`authenticated`** — so the project's publishable key grants no access through
-  PostgREST (Section 7.11).
-- The connection uses the `postgres` role over the Supabase **transaction-mode pooler**
-  (port 6543) at runtime and the **session-mode pooler** (port 5432) for migrations.
-- `audit_logs` is append-only: no `UPDATE` or `DELETE` policy exists for any role.
-
-### 8.4 Remaining requirements (unchanged)
-
-- Protect all application routes.
-- Require authorization for all server actions and database mutations.
-- Enable RLS on every private financial table.
-- Restrict access to authorized administrators.
-- Never expose the Supabase service-role key in browser code.
-- Keep secrets in environment variables.
-- Include `.env.example` with variable names only.
-- Validate input on both client and server.
-- Prevent unauthorized direct API access.
-- Protect against duplicate payment submissions.
-- Keep audit logs protected from ordinary modification.
-- Provide backup and restore documentation.
-
-The first release needs only the administrator workflow. Do not build a complicated multi-role system unless a genuine requirement emerges.
-
-## 9. Application Navigation
-
-Create these primary sections:
-
-1. Dashboard
-2. Collections
-3. Members
-4. Timeline
-5. Transactions
-6. Settings
-
-Desktop should use a sidebar.
-
-Mobile should use a compact bottom navigation bar.
-
-The current month should be easy to see and change.
-
-## 10. Dashboard
-
-The dashboard must display:
-
-- Selected monthly round.
-- Expected contribution total.
-- Amount collected.
-- Outstanding amount.
-- Number of fully paid members.
-- Number of partially paid members.
-- Number of pending members.
-- Next scheduled recipient or recipients.
-- Planned and actual payout totals.
-- Recent payment transactions.
-- Members who need reminders.
-- Collection and payout reconciliation warnings.
-
-All figures must be derived from actual Supabase data.
-
-Do not hardcode sample totals or mark sample data as real financial activity.
-
-### Dashboard calculations
-
-Expected collection = sum of applicable contribution obligations.
-
-Total collected = sum of valid payment transactions.
-
-Outstanding balance = sum of each member's positive outstanding balance.
-
-Paid members = count of members whose obligations are fulfilled.
-
-Pending members = count of members with outstanding balances.
-
-Collection progress = total collected divided by expected collection, with appropriate handling for zero obligations.
-
-Planned payout = sum of configured payout amounts.
-
-Actual payout = sum of confirmed disbursements.
-
-## 11. Collections Screen
-
-Display all members for the selected monthly round.
-
-Each row must contain:
-
-- Member name.
-- Expected contribution.
-- Total paid.
-- Outstanding balance.
-- Payment status.
-- Latest payment date.
-- Quick record-payment action.
-- Expandable payment history.
-
-### Filters
-
-- All members
-- Pending
-- Partially paid
-- Paid
-- Overpaid
-- Not applicable
-
-### Additional features
-
-- Search members by name.
-- Sort pending members to the top.
-- Quickly record the full outstanding amount.
-- Enter a custom partial-payment amount.
-- View previous transactions.
-- Open a payment reminder.
-- Call or WhatsApp a member if their phone number is available.
-
-On mobile, use compact cards or list rows instead of wide tables.
-
-## 12. Payment Recording Workflow
-
-The workflow should take only a few seconds.
-
-1. Open Collections.
-2. Select the monthly round.
-3. Search for or select a member.
-4. Enter the amount received, or use the full outstanding amount shortcut.
-5. Select UPI, bank transfer, cash or other.
-6. Enter the actual receipt date and time.
-7. Optionally enter a transaction reference or note.
-8. Submit the payment.
-9. Validate and persist the payment.
-10. Refresh the member balance and collection totals.
-
-### Payment form requirements
-
-- Prefill the member and month when opened from a member row.
-- Reject zero or negative amounts.
-- Show the current outstanding balance.
-- Show the resulting balance after payment.
-- Disable repeated submission while a request is in progress.
-- Implement idempotency on the server.
-- Do not report success until the database confirms the write.
-- Preserve form data after recoverable network errors.
-- Show useful error messages.
-- Keep every successful payment as a separate transaction.
-
-A payment should not automatically be treated as bank-verified. The administrator enters the transaction after seeing the bank notification or receiving other confirmation.
-
-## 13. Payment Status Rules
-
-Calculate statuses from the configured obligation and valid payment transactions.
-
-- **Not Paid:** no valid payment has been received and an amount is due.
-- **Partially Paid:** some money has been received, but the expected amount has not been fulfilled.
-- **Paid:** the expected contribution has been fulfilled exactly.
-- **Overpaid:** valid payments exceed the expected contribution.
-- **Not Applicable:** no contribution is due from the member for that round.
+| October 2026 | Yasir | 10,000 | 10,000 |
+| November 2026 | Ibrahim | 10,000 | 10,000 |
+| December 2026 | Fatima, Rahila | 5,000 + 5,000 | 10,000 |
+| January 2027 | Hidayat, Sajidh | 8,000 + 2,000 | 10,000 |
+| February 2027 | Zeenata Badeami | 12,500 | 12,500 |
+| March 2027 | Arshad Badeami, Khaise, Zaakir Aapa | 5,000 + 2,500 + 2,500 | 10,000 |
+| April 2027 | Zeenata Badeami, Afsar, Farhat | 12,500 + 2,500 + 5,000 | 20,000 |
+| May 2027 | Rahima, Rahila | 10,000 + 5,000 | 15,000 |
+| June 2027 | Shakir | 10,000 | 10,000 |
+| July 2027 | Zeenat Aunty, Sumayya, Munni Aunty | 2,500 + 2,500 + 5,000 | 10,000 |
+
+Rules:
+
+- Several recipients in one month are supported, each with their own amount.
+- `planned_amount` and `actual_amount` are stored separately. The application
+  never derives one from the other.
+- A round's total planned payout is not expected to equal that round's
+  collection target, and no warning is raised merely because they differ.
+- The planned amounts in the table are starting values. The administrator edits
+  them on the Timeline screen before the first disbursement.
+- "Apsar" in the original schedule was confirmed by the owner to be a typo for
+  **Afsar**, the member who contributes Rs 2,500. April 2027 is seeded with
+  Zeenata Badeami, Afsar and Farhat.
+
+---
+
+## 5. Data model
+
+Nine tables, defined in `prisma/schema.prisma` and created by the SQL in
+`supabase/migrations/`.
+
+### 5.1 `members`
+
+`id`, `slug`, `full_name`, `phone_number` (nullable),
+`default_contribution_amount`, `is_active`, `notes`, `created_at`,
+`updated_at`.
 
-For example, if Fatima owes ₹5,000 and pays ₹2,500, her status must be Partially Paid, with ₹2,500 remaining.
+### 5.2 `monthly_rounds`
 
-When she pays the remaining ₹2,500, her status changes to Paid. Both transactions must remain visible.
-
-Do not mark members as paid based on combined group totals alone.
-
-Do not calculate the number of paid members by dividing the total collection by ₹10,000.
-
-## 14. Members Screen
-
-Display:
-
-- Member name.
-- Optional phone number.
-- Default contribution.
-- Active status.
-- Monthly obligations.
-- Payment history.
-- Outstanding balances by round.
-- Total valid contributions recorded.
-
-Allow the administrator to edit member details and default contributions.
-
-Changing a default contribution must not silently change historical obligations or payments.
-
-## 15. Timeline Screen
-
-Display all ten rounds from October 2026 through July 2027.
-
-Each monthly card should show:
-
-- Month and year.
-- Scheduled recipients.
-- Planned payout amounts.
-- Total collected.
-- Outstanding balance.
-- Payout status.
-- Link to the monthly collection records.
-
-Allow recipient assignments and planned payout amounts to be edited.
-
-Support multiple recipients in a round without assuming equal payout amounts.
-
-## 16. Transactions Screen
-
-Provide a complete searchable ledger.
-
-Columns or mobile fields:
-
-- Transaction date.
-- Member.
-- Monthly round.
-- Amount.
-- Payment method.
-- Reference.
-- Transaction status.
-
-Filters:
-
-- Month.
-- Member.
-- Payment method.
-- Date range.
-- Valid or reversed transaction.
-
-Features:
-
-- View transaction details.
-- Export filtered results to CSV.
-- Reverse an incorrect transaction with confirmation.
-- Preserve the audit trail.
-- Refresh related collection totals after corrections.
-
-## 17. Reminders and Contact Actions
-
-Store optional phone numbers for members.
-
-Provide Call and WhatsApp shortcuts.
-
-Generate an editable reminder message containing:
-
-- Member name.
-- Monthly round.
-- Expected contribution.
-- Amount paid.
-- Outstanding balance.
-
-Example:
-
-"Hi Khaise, for October 2026, your contribution is ₹2,500. We have not recorded this payment yet. Please let me know when you have paid."
-
-Generate the message using actual database values. Never send messages automatically in the first release.
-
-Do not claim that a member has not paid if their recorded valid payments show otherwise.
-
-## 18. User Interface Requirements
-
-Build a professional, clean financial dashboard.
-
-- Mobile-first responsive design.
-- Readable rupee amounts.
-- Consistent spacing and typography.
-- Accessible color contrast.
-- Large touch targets.
-- Minimal animations.
-- Clear visual hierarchy.
-- Useful loading skeletons.
-- Empty states.
-- Error states.
-- Confirmation dialogs.
-- Success feedback.
-- Responsive member lists.
-- Sticky month selector where useful.
-- Desktop sidebar and mobile bottom navigation.
-
-Use a consistent design system across every screen.
-
-Avoid unnecessary charts, decorative elements and complex navigation.
-
-Include the subtle "Managed by Yasir" credit in the application footer and login page.
-
-## 19. PWA Requirements
-
-Make the application installable on a mobile home screen where supported.
-
-Include:
-
-- Web app manifest.
-- Appropriate application icons.
-- Mobile viewport configuration.
-- Suitable theme colors.
-- A clean standalone experience where supported.
-
-Do not implement offline payment writes in the first release unless reliable synchronization, duplicate prevention and conflict resolution are implemented.
-
-When offline, clearly indicate that a payment was not saved.
-
-## 20. Bank Integration
-
-The first release must not depend on direct bank integration.
-
-Implement fast manual payment recording.
-
-The administrator will record the amount after a bank notification or other confirmation.
-
-Keep the data model suitable for future supported transaction imports, including duplicate detection and reconciliation.
-
-Do not request or store bank passwords, OTPs or UPI PINs.
-
-Do not claim to have verified a bank payment without an actual supported integration.
-
-## 21. Testing
-
-Write unit tests for financial calculations and integration tests for payment operations.
-
-Test at least:
-
-1. Full payment.
-2. Partial payment.
-3. Multiple payments by the same member.
-4. Correct outstanding balance.
-5. Overpayment.
-6. Duplicate submission prevention.
-7. Payment reversal.
-8. Multiple recipients in a month.
-9. Historical October transactions.
-10. Correct monthly totals.
-11. Failed network requests.
-12. Authentication and RLS.
-13. Responsive mobile layouts.
-14. Reconciliation calculations.
-15. Repeatable seed scripts without duplicate records.
-
-Run linting, TypeScript checks, automated tests and a production build.
-
-Fix failures where possible and report remaining issues honestly.
-
-### 21.1 Test strategy (v2)
-
-- **Unit tests** (Vitest, no database): all pure financial logic in `src/lib/finance/`.
-  These cover the majority of the list above because every financial rule lives in a pure
-  function that is independent of React, Next.js and the database.
-- **Integration tests** (Vitest, against the live database): executed inside an explicit
-  transaction that is **always rolled back**, so the administrator's real data is never
-  modified by a test run. The runner asserts the rollback by re-counting rows afterwards.
-- **Security tests**:
-  - RLS — using the project's publishable key against the PostgREST endpoint, assert that
-    every financial table returns zero rows and rejects writes;
-  - authorization — assert that an unauthenticated request to a protected page is redirected
-    to `/login`, and that a server action invoked without a valid session cookie is rejected.
-- **Seed verification** — `scripts/verify-seed.mjs` is run as a test, not only as a manual step,
-  and additionally asserts that a second seed run changes no row counts.
-- **Responsive layout** — verified manually against a narrow (mobile) and a wide viewport,
-  and reported with screenshots; there is no browser-automation dependency in this release.
-
-### 21.2 Required test cases (v2 mapping)
-
-| # | Requirement | Where it is tested |
+`id`, `year`, `month`, `round_name`, `collection_target`, `status`, `notes`,
+`created_at`, `updated_at`. Unique on `(year, month)`.
+
+### 5.3 `contribution_obligations`
+
+`id`, `round_id`, `member_id`, `expected_amount`, `is_applicable`, `notes`,
+`created_at`, `updated_at`. Unique on `(round_id, member_id)`.
+
+### 5.4 `payments`
+
+`id`, `round_id`, `member_id`, `amount`, `payment_method`, `received_at`,
+`transaction_reference` (nullable), `note` (nullable), `idempotency_key`,
+`created_by`, `reversal_of_payment_id` (nullable), `created_at`.
+
+- `idempotency_key` is unique. This is the database level guarantee against a
+  duplicate submission.
+- `amount` must be greater than zero.
+- `reversal_of_payment_id` points at the payment being reversed, and a check
+  constraint prevents a row reversing itself.
+- `created_by` holds a single fixed actor identifier,
+  `00000000-0000-4000-8000-000000000001`, because there is exactly one
+  administrator. The column stays a UUID so a future multi user version needs
+  no migration.
+
+### 5.5 `payouts`
+
+`id`, `round_id`, `recipient_member_id`, `planned_amount`, `actual_amount`
+(nullable), `status`, `paid_at` (nullable), `transaction_reference` (nullable),
+`note`, `created_at`, `updated_at`. Unique on `(round_id, recipient_member_id)`.
+
+### 5.6 `share_groups` and `share_group_members`
+
+`share_groups` holds `id`, `name`, `target_share_amount`, `is_active`,
+`created_at`, `updated_at`.
+
+`share_group_members` holds `id`, `share_group_id`, `member_id`,
+`allocated_amount`, `effective_from_round_id` (nullable),
+`effective_until_round_id` (nullable), `created_at`, `updated_at`. Unique on
+`(share_group_id, member_id)`.
+
+These tables describe people who combine their contributions to form a larger
+share, for example Rs 5,000 plus Rs 5,000. A share group never replaces an
+individual obligation and never replaces a payment.
+
+### 5.7 `audit_logs`
+
+`id`, `actor_id` (nullable), `action`, `entity_type`, `entity_id` (nullable),
+`before_data` (nullable jsonb), `after_data` (nullable jsonb), `created_at`.
+
+The trail is append only. It is written for every payment, reversal, member
+change, obligation change, payout change and round change.
+
+### 5.8 Constraints and indexes
+
+- Every money column is `BIGINT` with a check constraint that rejects negative
+  values. `payments.amount` additionally requires a value greater than zero.
+- Indexes exist on every foreign key, on `payments.received_at`, on
+  `payments (round_id, member_id)` for the collections screen, and on the audit
+  trail's entity and date columns.
+- `updated_at` is maintained by a `BEFORE UPDATE` trigger on every table that
+  has one.
+
+### 5.9 How the schema is managed
+
+- The **source of truth for the schema** is hand authored, version controlled
+  SQL in `supabase/migrations/`, named with a timestamp and a description.
+- `scripts/migrate.mjs` applies them in order, each inside a transaction, and
+  records every file in a `schema_migrations` ledger with a checksum. A file
+  whose contents changed after it was applied is reported as an error rather
+  than silently re-applied.
+- Prisma's own `migrate dev` is not used, because it needs a shadow database
+  that the Supabase free tier does not allow creating.
+- `prisma/schema.prisma` mirrors the migrated schema and produces the typed
+  query client. It is the query layer, not the migration layer.
+- `prisma db pull` is the drift check. It was run during the build and showed
+  no difference between the schema file and the live tables.
+
+### 5.10 Seed
+
+`supabase/seed.sql` is idempotent and can be run from the SQL editor or with
+`npm run db:seed`.
+
+| Table | Rows |
+|---|---:|
+| members | 17 |
+| monthly_rounds | 10 |
+| contribution_obligations | 170 |
+| payouts | 19 |
+| payments | 0 |
+
+---
+
+## 6. Authentication and security
+
+### 6.1 The model
+
+There is one user. The application has no accounts, no roles and no signup.
+
+- The administrator's email and password live in server only environment
+  variables, `ADMIN_EMAIL` and `ADMIN_PASSWORD`. Neither uses a
+  `NEXT_PUBLIC_` prefix, so neither can reach the browser bundle.
+- The login form compares them with `crypto.timingSafeEqual` over SHA-256
+  digests, so the comparison time does not depend on the value or on how much
+  of it matched. Both halves are always compared.
+- A successful login issues a stateless signed session cookie:
+  `base64url(payload).base64url(HMAC-SHA256(payload))`, where the payload is
+  `{ email, issuedAt, expiresAt }`.
+- The cookie is `HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure` in production,
+  and lives for seven days with sliding renewal.
+- Rotating `SESSION_SECRET` invalidates every session at once.
+- The login endpoint allows five failed attempts per client address per fifteen
+  minutes. The limiter is in process, so on a serverless platform it is per
+  warm instance rather than global.
+
+### 6.2 Route and action protection
+
+Two independent layers:
+
+1. `src/proxy.ts`, the Next.js 16 replacement for `middleware.ts`, redirects
+   any unauthenticated request to `/login` and preserves the requested path.
+2. Every server action re-verifies the session before it writes anything.
+
+The second layer is not redundant. A Server Function is a POST to the route it
+belongs to, and a request that arrives by any other route must not be able to
+write. The authenticated layout re-checks the session as well, so a protected
+page can never render for a signed out visitor.
+
+### 6.3 Row Level Security
+
+`supabase/migrations/0002_row_level_security.sql`:
+
+- RLS is **enabled and forced** on all eight financial tables.
+- Every table, sequence and function privilege is **revoked** from `anon` and
+  `authenticated`.
+- **No policy is created** for those roles.
+
+With RLS enabled and no matching policy, those roles see zero rows and every
+write is rejected. This matters because the project's publishable key is public
+by nature. It is in the dashboard, and it must never be a way into the
+financial data.
+
+Verified against the live project: `GET`, `POST` and `DELETE` on every table
+with the publishable key all return `401 insufficient_privilege`. The check
+runs in `npm run db:check` and in the integration tests.
+
+### 6.4 The known trade-off
+
+The application connects as `postgres`, which holds the `BYPASSRLS` attribute.
+Prisma's queries are therefore **not** filtered by RLS. The effective
+administrator gate is the session cookie, not the database.
+
+This is a deliberate, documented deviation from the original plan, which asked
+for RLS to restrict access to authorised administrators. It was chosen because
+the owner asked for a single hard coded credential with no authentication
+provider, and because Prisma 7 requires a driver adapter that connects with a
+fixed role.
+
+**Hardening path**, for the day the application is exposed to more than one
+person or the database password is at risk:
+
+1. create a dedicated role, for example `cheeti_app`, with `NOSUPERUSER` and
+   `NOBYPASSRLS`;
+2. grant it `SELECT, INSERT, UPDATE, DELETE` on the application tables only;
+3. add an RLS policy for that role that checks a per transaction
+   `request.jwt.claims` value, and set that value from the server on every
+   connection;
+4. point `DATABASE_URL` at that role instead of `postgres`.
+
+The application code would not need to change, because every read and write
+already goes through the Prisma client in `src/lib/db.ts`.
+
+### 6.5 The audit trail
+
+`audit_logs` has no `UPDATE` or `DELETE` policy for any role, and a trigger
+raises an exception on any attempt to modify or delete a row, including from
+the application role. The integration tests assert that both operations are
+rejected.
+
+### 6.6 Input validation
+
+Every server action validates its input with Zod before touching the database.
+Identifiers must be UUIDs, amounts must be positive and within a sane limit,
+the payment method must be one of the four supported values, and the receipt
+date must parse as a date and time in Asia/Kolkata.
+
+### 6.7 Duplicate submissions
+
+`payments.idempotency_key` carries a unique index. The payment form creates a
+random key when it is opened and reuses it for every retry, so a double tap, a
+retry after a network error, or two impatient taps cannot record the same money
+twice. The server looks the key up before writing, and the unique index is the
+final guarantee.
+
+The insert runs inside its own transaction, because PostgreSQL aborts a
+transaction that hits a constraint violation. Without that, the recovery lookup
+after a duplicate would fail. This was a real bug found during the build.
+
+### 6.8 What is not protected
+
+| Risk | Status | Recommendation |
 |---|---|---|
-| 1 | Full payment | unit + integration |
-| 2 | Partial payment | unit + integration |
-| 3 | Multiple payments by the same member | unit + integration |
-| 4 | Correct outstanding balance | unit |
-| 5 | Overpayment | unit + integration |
-| 6 | Duplicate submission prevention | integration (unique `idempotency_key`) |
-| 7 | Payment reversal | unit + integration |
-| 8 | Multiple recipients in a month | unit + integration |
-| 9 | Historical October transactions | integration |
-| 10 | Correct monthly totals | unit + integration |
-| 11 | Failed network requests | unit (server-action error handling) |
-| 12 | Authentication and RLS | integration (security tests) |
-| 13 | Responsive mobile layouts | manual verification, reported |
-| 14 | Reconciliation calculations | unit |
-| 15 | Repeatable seed scripts without duplicate records | integration (`scripts/verify-seed.mjs`) |
+| Weak administrator password | The password in use is short and has been shared in a chat transcript | Rotate it before the application is deployed publicly |
+| No second factor | Single password only | Add deployment protection in front of the site |
+| Rate limiter is per instance | Online guessing is slowed, not prevented | Vercel deployment protection, or a shared limiter |
+| The database password is in the environment | Standard for a server side application | Rotate it from the Supabase dashboard and update the two URLs |
+| No secret manager | Environment variables hold the secrets | Vercel environment variables are encrypted at rest |
+| Backups contain personal information | Backups are written to disk | `backups/` is gitignored and must stay out of git |
 
-## 22. Implementation Phases
+---
 
-### Phase 1: Project setup
-- Inspect the existing repository.
-- Configure Next.js and TypeScript.
-- Establish the design system.
-- Configure environment variables.
-- Connect Supabase.
+## 7. The screens
 
-**v2 detail:** `git init` + `.gitignore`; scaffold Next.js 16.4.2 (App Router, `src/`),
-React 19.3.1, TypeScript 5.9 strict, Tailwind v4.3.3, shadcn/ui, ESLint 9; add
-`prisma@7.10.1`, `@prisma/client@7.10.1`, `@prisma/adapter-pg@7.10.1`, `pg`, `zod@4`,
-`react-hook-form`, `@hookform/resolvers`, `@tanstack/react-query`, `recharts`, `lucide-react`,
-`vitest@5`; write `prisma.config.ts`, `prisma/schema.prisma`, `src/lib/db.ts`,
-`src/lib/money.ts`, `src/lib/auth.ts`, `src/proxy.ts`, `src/config/app.ts`; create
-`.env.example` and `.env.local`; verify live connectivity with a `SELECT 1` against the
-pooler; run `prisma generate`; add a Vitest smoke test. **Commit 1.**
+Six screens, all reading live data.
 
-### Phase 2: Database and security
-- Create SQL migrations.
-- Create database tables and constraints.
-- Configure authentication and RLS.
-- Seed the 17 members and ten monthly rounds.
-- Verify the initial total of ₹1,00,000.
+### 7.1 Dashboard
 
-**v2 detail:** write `supabase/migrations/0001_schema.sql` (nine tables, constraints,
-indexes, triggers) and `supabase/migrations/0002_rls.sql` (RLS, grants, revokes); write
-`scripts/migrate.mjs` (ledger-tracked, transactional), `scripts/seed.mjs`,
-`supabase/seed.sql` and `scripts/verify-seed.mjs`; apply migrations and seed to the live
-database; run the verification gate (17 members, ₹1,00,000 total, 10 rounds, 170 obligations,
-each round summing to ₹1,00,000, 19 payouts, 0 payments, and a second seed run changing
-nothing); confirm the publishable key is denied by RLS. **The payment engine is not started
-until this gate passes.** **Commit 2.**
+The selected round, the expected total, the amount collected, the amount
+outstanding, the counts of paid, partially paid and pending members, the
+collection progress bar, the next scheduled recipients with planned and actual
+payout totals, the most recent transactions, the members who need a reminder,
+and the reconciliation warnings.
 
-### Phase 3: Financial logic
-- Implement contribution obligations.
-- Implement payment recording.
-- Implement partial payments.
-- Implement outstanding balances.
-- Implement reversals and audit logging.
-- Add financial calculation tests.
+### 7.2 Collections
 
-**v2 detail:** `src/lib/finance/` holds pure functions (payment status, outstanding,
-per-round and per-member aggregates, dashboard totals, reconciliation checks, reminder text,
-CSV serialisation) with exhaustive unit tests; `src/app/actions/` holds zod-validated,
-session-checked server actions for recording, reversing, editing members, editing
-obligations and editing payouts; `idempotency_key` is enforced by a unique index; reversals
-write a compensating row plus an `audit_logs` entry and are excluded from valid totals;
-integration tests run inside a rolled-back transaction. **Commit 3.**
+Every member for the selected round with their expected amount, what they have
+paid, their outstanding balance, their status, the date of their last payment,
+and the full payment history. Filters for all, pending, partially paid, paid,
+overpaid and not applicable, plus a search box on the member's name. Members
+who still owe money are sorted to the top. The record action opens a form with
+the full outstanding balance already filled in, and the resulting balance is
+shown before saving. A reminder action opens a message built from the recorded
+figures, with Call and WhatsApp shortcuts when a phone number is on file.
 
-### Phase 4: Main UI
-- Build the dashboard.
-- Build Collections.
-- Build Members.
-- Build Timeline.
-- Build Transactions.
-- Connect every screen to real database records.
+On a phone each member is a compact card. On a wide screen the same data is a
+table.
 
-**v2 detail:** app shell with a desktop sidebar and a mobile bottom navigation bar, a sticky
-round selector, and the `Managed by Yasir` credit in the footer; Dashboard, Collections,
-Members, Timeline, Transactions and Settings screens, each reading live Prisma data; every
-figure derived from the database, with loading skeletons, empty states and error states.
-**Commit 4.**
+### 7.3 Members
 
-### Phase 5: Productivity features
-- Add search and filters.
-- Add reminder messages.
-- Add contact shortcuts.
-- Add CSV export.
-- Add PWA support.
+Each member with their default contribution, phone number, active state, what
+they have contributed across the scheme, what they still owe, their payment
+count and the date of their last payment. Member details can be edited and new
+members added.
 
-**v2 detail:** member search and the six status filters with pending-first sorting; the
-one-tap "record full outstanding" shortcut; reminder message composer with editable text
-built from live values; Call and WhatsApp links when a phone number exists; CSV export of
-the filtered transaction ledger; web app manifest, icons, theme colours and viewport
-configuration, with an explicit "not saved" state when the device is offline. **Commit 5.**
+### 7.4 Timeline
 
-### Phase 6: Production readiness
-- Test mobile and desktop layouts.
-- Test RLS and authorization.
-- Test failure handling.
-- Verify financial totals.
-- Document backups.
-- Deploy to Vercel.
-- Provide setup and deployment documentation.
+All ten rounds. Each card shows the scheduled recipients with their planned
+amounts, the planned total, the amount actually disbursed, what the round
+collected, what is still outstanding, and the counts of paid, partial and
+pending members. Recipients can be added, removed and edited.
 
-**v2 detail:** run `lint`, `tsc --noEmit`, `vitest` and `next build`; verify mobile and
-desktop layouts by hand and report the result honestly; run the RLS and authorization test
-suite; confirm the financial totals against the live database; write `README.md`,
-`SECURITY.md`, `BACKUP.md`, `VERCEL.md` and `USER_GUIDE.md`; deploy to Vercel once the
-owner has set the environment variables there. **Commit 6.**
+### 7.5 Transactions
 
-## 23. Required Deliverables
+The complete ledger with filters for month, member, payment method, date range
+and status. The status filter can narrow the list to the entries that count
+towards the collection. The filtered rows export to CSV, and a wrong entry can
+be reversed after a confirmation.
 
-Deliver:
+### 7.6 Settings
 
-- Complete source code.
-- SQL migrations.
-- Repeatable seed script.
-- `.env.example`.
-- README.
-- Supabase setup instructions.
-- Security and RLS documentation.
-- Test suite.
-- Vercel deployment guide.
-- User guide for recording payments and reconciling collections.
+The scheme configuration, the ten rounds with their status and target, and the
+about text. A round can be opened or closed, and its target and notes edited.
 
-### 23.1 Concrete file layout (v2)
+### 7.7 Navigation
 
-```
-docs/CHEETI_MANAGER_PLAN.md      this document
-prisma/schema.prisma              data model (typed query client source)
-prisma.config.ts                  Prisma CLI config (loads .env.local)
-supabase/migrations/*.sql         version-controlled SQL migrations
-supabase/seed.sql                 idempotent seed (runnable from the SQL editor)
-scripts/migrate.mjs               applies migrations via pg, ledger-tracked
-scripts/seed.mjs                  idempotent seed runner
-scripts/verify-seed.mjs           the Rs 1,00,000 gate
-scripts/db-check.mjs              connectivity + RLS probe
-src/config/app.ts                 app name, owner branding, currency, locale, timezone
-src/lib/db.ts                     Prisma singleton
-src/lib/auth.ts                   credential check + signed session cookie
-src/lib/money.ts                  paise <-> rupees, en-IN formatting
-src/lib/finance/*.ts              pure financial logic (no React, no DB)
-src/app/actions/*.ts              server actions (zod validated, session checked)
-src/proxy.ts                      session guard / route protection
-src/app/**/page.tsx               screens
+Desktop uses a fixed sidebar. A phone uses a compact bottom navigation bar.
+The selected month is kept in the URL, so every screen follows the same choice
+and a screen can be linked to directly.
+
+---
+
+## 8. Financial rules
+
+All of this lives in `src/lib/finance/`, as pure functions with no React, no
+Next.js and no database. That is what makes the rules testable.
+
+### 8.1 Payment status
+
+| Status | Rule |
+|---|---|
+| Not paid | No valid payment received and an amount is due |
+| Partially paid | Some money received, the expected amount not fulfilled |
+| Paid | The expected contribution fulfilled exactly |
+| Overpaid | Valid payments exceed the expected contribution |
+| Not applicable | No contribution is due from that member for that round |
+
+The status is computed per member from their obligation and their own valid
+payments. A member is never marked paid because the round total is
+sufficient, and paid members are never counted by dividing a total by a fixed
+amount.
+
+Worked example from the plan: Fatima owes Rs 5,000 and pays Rs 2,500, so her
+status is partially paid with Rs 2,500 outstanding. When she pays the
+remaining Rs 2,500 her status becomes paid, and both transactions stay visible.
+
+### 8.2 Outstanding balance
+
+Only positive balances are outstanding. An overpaid member has nothing
+outstanding, and their surplus is never netted against another member.
+
+### 8.3 Reversals
+
+A reversal never deletes anything. A compensating entry is written that points
+at the original, and both the original and the reversal are excluded from the
+collection totals. The full history stays visible in the ledger, marked as
+reversed or as a reversal entry.
+
+### 8.4 Reconciliation warnings
+
+A short collection is a note while a round is open, and critical once it is
+closed. A payout larger than what was collected is always critical. A
+collection above the expected amount, a planned payout above the collection, an
+actual payout above the planned amount, and any member who overpaid are all
+reported.
+
+### 8.5 Timezone
+
+The scheme runs in Asia/Kolkata. The server may run in any timezone, and Vercel
+runs in UTC, so a date entered by the administrator is read as wall clock time
+in Asia/Kolkata and stored as the correct UTC instant. A payment recorded at
+2:30 pm is not stored five and a half hours out. The conversion lives in
+`src/lib/datetime.ts` and is covered by unit tests.
+
+---
+
+## 9. Testing
+
+### 9.1 The layers
+
+| Layer | What it covers | Database |
+|---|---|---|
+| Unit | All financial logic, formatting, timezone, session tokens, rate limiting | None |
+| Integration | Server actions against the real schema | Live database, inside a rolled back transaction |
+| End to end | The real login form over HTTP, then every protected screen | Live database, read only |
+| Layout | Every screen at phone, tablet and desktop sizes | Live database, read only |
+
+### 9.2 The integration tests never touch the real data
+
+Every integration test runs inside a Prisma interactive transaction that is
+always rolled back. The runner forces the rollback by throwing a sentinel
+error. `src/lib/db.ts` exports `withClient`, which swaps the shared Prisma
+client for the transaction's client, so the application's own server actions
+run against the transaction rather than the committed database.
+
+The suite was checked afterwards against the live database: the row counts were
+unchanged, the audit trail was empty, and no test rows were left behind.
+
+Because the administrator started recording real payments, the payment tests
+were moved onto a transient round of their own, so their assertions do not
+depend on what has already been recorded. One separate test covers a
+historical transaction in the genuine October 2026 round.
+
+### 9.3 The release gate
+
+`npm run db:verify` asserts the seeded scheme against the live database:
+
+- exactly 17 members, with unique slugs
+- the member defaults total exactly 10,000,000 paise, which is Rs 1,00,000
+- no negative default contribution
+- exactly 10 rounds, one per month from October 2026 to July 2027
+- every round's target is 10,000,000 paise
+- exactly 170 obligations, one per member per round
+- every round's applicable obligations total exactly 10,000,000 paise
+- every obligation matches the member's default contribution
+- exactly 19 payouts, matching the schedule in section 4
+- the seed creates no payment history
+- RLS is enabled on all eight tables, with no policy for `anon` or
+  `authenticated`
+
+The payment engine was not started until this gate passed.
+
+### 9.4 The test cases
+
+| # | Requirement | Where it is covered |
+|---|---|---|
+| 1 | Full payment | Unit and integration |
+| 2 | Partial payment | Unit and integration |
+| 3 | Multiple payments by one member | Unit and integration |
+| 4 | Correct outstanding balance | Unit |
+| 5 | Overpayment | Unit and integration |
+| 6 | Duplicate submission prevention | Integration, unique index |
+| 7 | Payment reversal | Unit and integration |
+| 8 | Several recipients in a month | Unit and integration |
+| 9 | Historical October transactions | Integration |
+| 10 | Correct monthly totals | Unit and integration |
+| 11 | Failed network requests | Unit, server action error handling |
+| 12 | Authentication and RLS | Integration and end to end |
+| 13 | Responsive mobile layouts | Layout checks in a real browser |
+| 14 | Reconciliation calculations | Unit |
+| 15 | Repeatable seed, no duplicate records | Integration and `db:verify` |
+
+### 9.5 Commands
+
+```bash
+npm run lint          # ESLint, flat config, zero problems
+npm run typecheck     # tsc --noEmit
+npm test              # 100 tests
+npm run build         # production build
+npm run db:check      # connectivity and the publishable key probe
+npm run db:verify     # the scheme release gate
+npm run e2e -- <url>  # the real login form and every protected screen
+npm run visual -- <url>  # 54 layout checks in a real browser
 ```
 
-## 24. Final Instructions to the Coding Agent
+The layout check found three real defects during the build, all of them fixed:
+every select showed its raw value instead of a label, so the month picker
+displayed a UUID. The mobile navigation wrapped onto a second row. And the
+integration tests broke as soon as the administrator recorded real payments.
 
-Inspect the repository before changing files.
+---
 
-Implement the application in manageable phases. Do not stop after writing a plan or creating placeholder pages.
+## 10. Backup and restore
 
-Use reusable components and keep financial business logic separate from presentation code.
+The database is the only system of record. Eight tables hold everything:
+`members`, `monthly_rounds`, `contribution_obligations`, `payments`, `payouts`,
+`share_groups`, `share_group_members` and `audit_logs`.
 
-Do not invent credentials, historical payments or test results.
+### 10.1 Two kinds of backup
 
-Do not claim a feature is complete until it has been implemented and tested.
-
-If external configuration is missing, implement what can be completed and document exactly what the administrator must configure.
-
-Prioritize financial correctness, data integrity, security and a fast mobile workflow over unnecessary complexity.
-
-## 25. Decisions, Deviations and Required Configuration
-
-This section is the authoritative record of what was agreed during setup. It was written
-before any code was produced, and it is updated as the build progresses.
-
-### 25.1 Confirmed decisions
-
-| # | Decision | Rationale |
+| Kind | What it is | How to restore |
 |---|---|---|
-| D1 | Supabase is used as the **PostgreSQL host only** | Free-tier project `iclzhfatzdauhktpeivi`, region `ap-southeast-1` |
-| D2 | **Prisma 7.10.1** is the data-access layer, with `@prisma/adapter-pg` | Typed queries, version-controlled migrations, pure-JS driver — no Docker, no Python, no `psql`, no native engine binary |
-| D3 | `prisma` pinned to `7.10.1`, **not** the `latest` tag | `latest` is an 8.0 release candidate |
-| D4 | **No Supabase JS SDK** (`@supabase/supabase-js`, `@supabase/ssr` removed) | Prisma covers all data access; fewer client-side credentials |
-| D5 | Single **hard-coded administrator credential** + HMAC-signed session cookie | Project owner's explicit instruction: only one user, no signup, no user management |
-| D6 | RLS **enabled on every table with zero policies for `anon`/`authenticated`** | The publishable key is public; this makes direct PostgREST access useless |
-| D7 | **Money stored as integer paise** in `BIGINT` | Exact arithmetic; matches the plan's preference |
-| D8 | **Every member has an obligation in every round** (170 rows) | Only configuration under which each round sums to exactly ₹1,00,000 |
-| D9 | Seeded `planned_amount` = **each recipient's own contribution** | Confirmed by the project owner; all values remain editable |
-| D10 | **`Apsar` is the member `Afsar`** | Confirmed by the project owner; it was a typo in the source schedule |
-| D11 | Migrations are **hand-authored SQL** applied by a Node script | Prisma `migrate dev` needs a shadow database the free tier cannot create |
-| D12 | Git initialised with **one commit per phase** | Traceable history for the migration files |
-| D13 | Next.js 16 `src/proxy.ts` replaces `middleware.ts` | Next.js 16 renamed the convention; proxy runs on the Node runtime |
-| D14 | Product renamed to **Yasir Ledger**; *cheeti* retained as the scheme description | Professional product name while staying unambiguous about purpose (Section 3) |
-| D15 | Branded **splash screen** with a "Y" monogram, product name, description and loader | Requested by the project owner; implemented with text only, no image asset (Section 3.1) |
-| D16 | Next.js **Cache Components disabled** (`cacheComponents` removed from `next.config.ts`) | The whole application is authenticated and reads cookies. With Cache Components on, calling `cookies()` outside a `<Suspense>` boundary breaks prerendering, and `export const dynamic` is removed. Classic dynamic rendering is simpler and predictable here. |
-| D17 | Migration runner is a **custom Node script**, not the Prisma CLI | `prisma migrate dev` requires a shadow database the Supabase free tier cannot create; `directUrl` was also removed in Prisma 7 (Section 7.10) |
+| Supabase's own | Platform managed daily snapshots, under Settings, Database, Backups in the dashboard | Restore the whole database from the dashboard |
+| Application backup | A JSON file produced by `npm run db:backup` | `npm run db:restore -- <file>` |
 
-### 25.2 Deliberate deviations from this plan
+Use both. The platform backup protects the whole database. The application
+backup is portable, readable, and can be restored into a different project.
+
+### 10.2 Taking a backup
+
+```bash
+npm run db:backup
+npm run db:backup -- backups/before-the-july-round.json
+```
+
+The file is written to `backups/`, which is gitignored. Backups contain member
+names, phone numbers and payment history, so they must stay somewhere private.
+
+### 10.3 Restoring
+
+```bash
+npm run db:restore -- backups/yasir-ledger-2026-10-21T07-35-14-149Z.json
+```
+
+The whole restore runs inside one transaction, so a failure leaves the database
+exactly as it was. Each table is emptied and repopulated in dependency order.
+`audit_logs` is different: the existing rows are never deleted or modified,
+because the trail is append only. Missing rows are added back so the history is
+complete, but the trail can never be rewritten.
+
+The restore replaces the current data. Take a fresh backup first if unsure.
+
+### 10.4 A schedule that works
+
+- At the end of each round, from October 2026 to July 2027, run
+  `npm run db:backup` and copy the file somewhere private.
+- Before any risky change, such as editing member defaults in bulk or applying
+  a new migration, take a backup first.
+- After July 2027, take a final backup and keep it. The data is the record of
+  who paid what.
+
+### 10.5 Recovering from a mistake in the application
+
+Most mistakes do not need a restore.
+
+| Mistake | How to undo it |
+|---|---|
+| A payment was recorded in error | Transactions, then the row, then Reverse. The original stays in the ledger and is excluded from the totals |
+| The wrong amount was entered | Reverse it, then record the correct payment. Both entries stay visible |
+| A member's name or phone number is wrong | Members, then Edit. Nothing else is affected |
+| A member's default contribution is wrong | Members, then Edit. Past obligations and payments are deliberately unchanged |
+| An obligation is wrong for one month | Collections, then the member, then edit the obligation |
+| A recipient is wrong for a month | Timeline, then the month, then remove or add the recipient |
+
+A restore is only needed if the database itself is damaged.
+
+### 10.6 What a backup does not cover
+
+The environment variables, including `ADMIN_PASSWORD`, `SESSION_SECRET` and
+the database password. Keep a copy of `.env.local` somewhere private. The
+Vercel deployment lives in git, so a redeploy restores it. The Supabase project
+settings live in the dashboard.
+
+---
+
+## 11. Deployment
+
+### 11.1 Steps
+
+1. Import the repository into Vercel. The framework preset is Next.js and the
+   build commands are detected automatically.
+2. Set the environment variables below under Project, Settings, Environment
+   Variables. They are encrypted at rest and are not printed in the build log.
+3. Apply the migrations to the hosted database from your own machine:
+
+   ```bash
+   npm run db:migrate
+   npm run db:seed     # only on a brand new project
+   npm run db:verify
+   ```
+
+   The schema is not applied by the build on purpose. A build should not be
+   able to change a production database.
+4. Deploy. The build runs `npm install`, which generates the Prisma client, and
+   then `next build`.
+5. Open the deployment, sign in, and check that the dashboard shows Rs 1,00,000
+   expected for October 2026.
+6. Run the end to end check against the deployment:
+
+   ```bash
+   npm run e2e -- https://your-deployment.vercel.app
+   ```
+
+### 11.2 Environment variables
+
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | `postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1` |
+| `DIRECT_URL` | `postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres` |
+| `ADMIN_EMAIL` | The administrator's email |
+| `ADMIN_PASSWORD` | A strong password, different from the development one |
+| `SESSION_SECRET` | 32 or more random bytes, hex encoded |
+
+Optional, only for the RLS check in `npm run db:check`:
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. The
+publishable key is public by design. The database password and
+`SESSION_SECRET` are not, and must never use a `NEXT_PUBLIC_` prefix.
+
+### 11.3 After deploying
+
+- Rotate the administrator password, because the development value only ever
+  existed in the local `.env.local`.
+- Turn on deployment protection. The application has one password, so a second
+  locked door in front of the whole site is worthwhile.
+- Set up the backups, as described in section 10.
+- Add a domain if a memorable address is wanted.
+
+### 11.4 Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| "Missing required environment variable: DATABASE_URL" | The variable is not set for that environment. Apply it to Production and redeploy |
+| The dashboard shows Rs 0 | The data was not seeded, or the app is connected to a different database. Run `db:verify` against the same `DIRECT_URL` |
+| "current transaction is aborted" | The connection uses a pooler that cannot hold an interactive transaction. Use the session mode pooler for `DIRECT_URL` |
+| "Too many clients" | The runtime pooler is exhausted. Lower `connection_limit` and make sure the Prisma client is one instance per function |
+| "prepare statement" errors | The transaction mode pooler does not support prepared statements. Keep `pgbouncer=true` |
+
+---
+
+## 12. Using the application
+
+### 12.1 Signing in
+
+Enter the administrator email and password. After five wrong attempts the form
+pauses for fifteen minutes. The session lasts seven days. The sign out button
+is in the sidebar on a computer and in the top bar on a phone.
+
+### 12.2 Choosing a month
+
+The month selector is at the top of the Dashboard and the Collections screen.
+The chosen month is part of the page address, so a specific month can be
+bookmarked and every screen follows the same choice.
+
+### 12.3 Recording a payment
+
+1. Open Collections and choose the month.
+2. Find the member, using the search box or the list. Members who still owe
+   money are listed first.
+3. Tap Record.
+4. The amount is already filled in with the full outstanding balance. Change it
+   if a different amount was paid, or tap Full to put the balance back.
+5. Choose how it was paid: UPI, Bank transfer, Cash or Other.
+6. The Received on field is pre-filled with the current time. Change it if the
+   money arrived earlier. The time is always Asia/Kolkata.
+7. Add a reference or a note if wanted.
+8. Check the balance after this payment, then tap Record payment.
+
+The confirmation only appears once the database has actually stored the
+payment.
+
+If the phone is offline the form refuses to submit and says so plainly.
+Nothing is stored and nothing is queued, so a payment can never silently go
+missing.
+
+### 12.4 Partial payments
+
+A member can pay in instalments. Record each payment separately. The second
+payment adds to the first, and the status moves from not paid to partially
+paid to paid as the balance is cleared. Both transactions stay visible in the
+member's history.
+
+### 12.5 Sending a reminder
+
+1. On the Collections screen, expand the member and tap Remind.
+2. The message is written for you, using the figures actually recorded. For
+   example: "Hi Khaise, for October 2026, your contribution is Rs 2,500. We
+   have not recorded this payment yet. Please let me know when you have paid."
+3. Edit the wording if wanted.
+4. Use Copy to copy the message, WhatsApp to open it in WhatsApp, or Call to
+   dial the member.
+
+WhatsApp and Call only appear when the member has a phone number saved. Nothing
+is ever sent automatically.
+
+### 12.6 Fixing a mistake
+
+Open Transactions, find the row, tap the undo button and confirm. The original
+entry stays in the ledger, marked Reversed, and a matching Reversal entry is
+added. Neither counts towards the collection totals, so the member's balance is
+corrected immediately and the history of what happened is never lost.
+
+To correct a member's name, phone number or default contribution, use Members
+then Edit. Changing the default deliberately does not change any past month's
+obligation or any payment already recorded.
+
+### 12.7 Members
+
+The Members screen shows every member with their default monthly contribution,
+what they have paid across the whole scheme, what they still owe, and when they
+last paid.
+
+Add member creates a new member who starts with no obligations in past months,
+so adding someone today never changes what the scheme looked like before
+today. Give them an obligation in the current month from the Collections
+screen.
+
+Inactive marks someone who has left the scheme. Their history is kept.
+
+### 12.8 Timeline
+
+All ten rounds, with who is scheduled to receive money that month, how much is
+planned, how much has actually been disbursed, and what the round collected.
+Recipients can be added, removed and edited, and a payout can be marked as
+paid with the amount, the date and a reference.
+
+The planned amount and the amount actually disbursed are stored separately and
+are never derived from one another. The planned amounts are starting values.
+Check them against the actual arrangement and adjust them.
+
+### 12.9 Transactions
+
+The complete ledger, with filters for month, member, payment method, date
+range and status. The status filter can narrow the list to the entries that
+count towards the collection. Export CSV downloads the filtered rows.
+
+### 12.10 Settings
+
+Shows the scheme configuration, the period, the number of rounds and members,
+the monthly target, and the expected total across the scheme. Each month can be
+opened or closed, and its target and notes edited.
+
+Closing a month records that a round is finished. A closed month that is short
+of its expected amount is flagged as critical on the Dashboard rather than as a
+note.
+
+The target is a reference figure. The expected collection for a month is always
+the sum of the obligations configured for that month, so the two can
+legitimately differ.
+
+### 12.11 A good routine
+
+- Record each payment as it arrives rather than in a batch at the end of the
+  month.
+- Check the Dashboard at the start of each month to see who is outstanding.
+- Send reminders early in the month.
+- Take a backup at the end of each round.
+- Reconcile before each payout. The reconciliation panel says whether the round
+  collected what it should have.
+
+---
+
+## 13. How it was built
+
+The work was done in six phases, each verified before the next one started.
+
+### Phase 1, project setup
+
+The repository was empty apart from the plan document. Next.js 16, React 19,
+TypeScript in strict mode, Tailwind v4 and shadcn/ui were set up. Prisma 7 was
+added with the `@prisma/adapter-pg` driver adapter, which uses the pure
+JavaScript `pg` driver, so no native engine binary, Docker, `psql` or Python
+is needed anywhere.
+
+The authentication foundation was written at the same time: a constant time
+credential check, the signed session cookie, the route guard in
+`src/proxy.ts`, and the branded splash screen.
+
+Verified: type check clean, lint clean, unit tests passing, production build
+succeeding, and the route protection exercised live over HTTP.
+
+### Phase 2, database and security
+
+The SQL migrations were written and applied to the live Supabase project, then
+the seed was written and applied. The release gate in section 9.3 was run
+before any part of the payment engine existed, and it passed: Rs 1,00,000
+exactly, 170 obligations, 19 payouts, no payments, and RLS denying the
+publishable key on every table.
+
+### Phase 3, financial engine
+
+The pure financial functions were written first, with their unit tests, then
+the server actions on top of them. The actions validate with Zod, check the
+session, write the change and its audit entry in one transaction, and revalidate
+the affected paths.
+
+The duplicate handling bug described in section 6.7 was found by the
+integration tests and fixed by scoping the insert to its own transaction.
+
+### Phase 4, the screens
+
+All six screens were built against live data, with the shell, the month
+selector, the dialogs and the forms. The end to end script was written at this
+point, and it replays the real login form rather than calling the action
+directly.
+
+### Phase 5, productivity and PWA
+
+Search, filters, sorting, the reminder composer, the Call and WhatsApp
+shortcuts, CSV export, the web app manifest, icons drawn in code, and the
+offline handling.
+
+### Phase 6, production readiness and the redesign
+
+The documentation set was written. The layout check was then built, driving
+the installed Chrome through every screen at three widths, which found three
+real defects.
+
+The final pass was a full visual redesign: a new token system, a new type
+scale, restyled primitives, a dark mode, and a new login screen. The defect
+found during that work was that `--color-primary` had never been mapped in the
+Tailwind theme, so every `bg-primary` was transparent. The brand panel on the
+login screen was rendering white on white. It is fixed and covered by the
+layout check.
+
+### The method
+
+- Every phase was verified before the next one started. The Rs 1,00,000 gate
+  came before the payment engine, not after.
+- The financial rules were written as pure functions first, so they could be
+  tested without a database, and so they never got tangled with presentation.
+- The integration tests were designed to leave the database untouched, so the
+  administrator could use the real application while the suite was running.
+- Anything claimed to work was checked against the running application, either
+  over HTTP or in a real browser. Three UI defects and one database defect were
+  found this way, none of which a type check would have caught.
+
+---
+
+## 14. Repository map
+
+```
+docs/YASIR_LEDGER_PLAN.md   this document
+README.md                    a short introduction for Yasir
+
+prisma/schema.prisma         the data model, produces the typed query client
+prisma.config.ts             Prisma CLI configuration, loads .env.local
+
+supabase/migrations/          version controlled SQL migrations
+supabase/seed.sql             idempotent seed, also runnable from the SQL editor
+
+scripts/load-env.mjs         shared environment loading for the scripts
+scripts/migrate.mjs          applies migrations, ledger tracked
+scripts/seed.mjs             runs the seed
+scripts/verify-seed.mjs      the release gate
+scripts/db-check.mjs         connectivity and the publishable key probe
+scripts/prisma-check.ts      checks the application's own data path
+scripts/backup.mjs           exports every table to JSON
+scripts/restore.mjs          restores that JSON
+scripts/e2e-check.mjs        the real login form and every protected screen
+scripts/visual-check.mjs     54 layout checks in a real browser
+scripts/generate-icons.mjs   draws the PWA icons in code
+
+src/config/app.ts            branding, currency, locale, timezone
+src/config/navigation.ts      the six screens and their icons
+
+src/lib/server-env.ts        validated server only environment access
+src/lib/db.ts                the Prisma client, and withClient for the tests
+src/lib/auth.ts              credential check and the session cookie
+src/lib/session.ts           token signing and verification
+src/lib/rate-limit.ts        the login throttle
+src/lib/money.ts             paise and rupee conversion, en-IN formatting
+src/lib/datetime.ts          Asia/Kolkata parsing and formatting
+src/lib/audit.ts             the append only audit trail
+src/lib/action-result.ts     the shared result shape for server actions
+src/lib/finance/             the pure financial rules, with their tests
+src/lib/data/                the read layer, on top of Prisma
+
+src/app/actions/             server actions: payments, members, obligations,
+                             payouts, rounds
+src/app/(app)/               the six screens and the authenticated shell
+src/app/login/               the login page, the form and its action
+src/proxy.ts                 route protection
+src/components/              the shell, the dialogs, the shared pieces
+src/components/ui/           the shadcn primitives
+```
+
+### Conventions worth knowing
+
+- Money is always paise, always a `BigInt` in the database and always a
+  `number` in the interface. Never a decimal.
+- Financial rules never live in a component. They live in `src/lib/finance/` and
+  are pure.
+- Server actions always check the session, always validate with Zod, and
+  always write the change and its audit entry together.
+- The selected round lives in the URL as `?round=<id>`.
+- The brand mark and the PWA icons are drawn from type and code, so the
+  repository carries no binary assets.
+
+---
+
+## 15. Decisions and deviations
+
+### 15.1 Confirmed decisions
+
+| # | Decision | Reason |
+|---|---|---|
+| D1 | Supabase is the PostgreSQL host only | Free tier project `iclzhfatzdauhktpeivi`, region `ap-southeast-1` |
+| D2 | Prisma 7.10.1 with the pg driver adapter | Typed queries, version controlled migrations, and no Docker, psql, Python or native binary |
+| D3 | Prisma pinned to 7.10.1 | The `latest` tag is an 8.0 release candidate |
+| D4 | No Supabase JavaScript SDK | Prisma covers all data access, so there are fewer client side credentials |
+| D5 | A single hard coded administrator credential and a signed session cookie | The owner's instruction: one user, no signup, no user management |
+| D6 | RLS enabled on every table with no policy for anon or authenticated | The publishable key is public, so it must never be a way into the data |
+| D7 | Money stored as integer paise | Exact arithmetic, and it matches the plan's preference |
+| D8 | Every member has an obligation in every round | The only configuration in which each round sums to exactly Rs 1,00,000 |
+| D9 | The seeded planned payout equals each recipient's own contribution | Confirmed by the owner. All values stay editable |
+| D10 | Apsar is the member Afsar | Confirmed by the owner. It was a typo in the source schedule |
+| D11 | Migrations are hand authored SQL applied by a Node script | Prisma's `migrate dev` needs a shadow database the free tier cannot create |
+| D12 | One commit per phase | A traceable history for the migration files |
+| D13 | `src/proxy.ts` replaces `middleware.ts` | Next.js 16 renamed the convention and the proxy runs on the Node runtime |
+| D14 | The product was renamed to Yasir Ledger | A professional product name, with cheeti kept as the description of the scheme |
+| D15 | A branded splash screen with the Y monogram | Requested by the owner. Drawn in type, so there is no image asset |
+| D16 | Next.js Cache Components switched off | The whole application is authenticated and reads cookies. With Cache Components on, reading cookies outside a Suspense boundary breaks prerendering |
+| D17 | A custom migration runner rather than the Prisma CLI | The Prisma CLI needs a shadow database, and `directUrl` was removed in Prisma 7 |
+| D18 | A dark mode was added | A requirement of the redesign, and the tokens were written for both surfaces from the start |
+
+### 15.2 Deliberate deviations
 
 | Plan section | Planned | Actual | Impact and mitigation |
 |---|---|---|---|
-| §2, §8 | Supabase Auth | Hard-coded credential + signed cookie | No `auth.users` identity. Mitigated by server-side session checks in the proxy **and** in every server action. Swap-in point for Supabase Auth is `src/lib/auth.ts` alone. |
-| §7, §8 | RLS restricts access to authorized administrators | RLS is a deny-all backstop for `anon`/`authenticated`; the `postgres` role bypasses RLS, so the session cookie is the real gate | Documented in `SECURITY.md`, including the hardening path (a dedicated non-`BYPASSRLS` role plus per-transaction `request.jwt.claims`). |
-| §8 | "Never expose the Supabase service-role key in browser code" | The service-role key is not used at all | Stricter than the plan. |
-| §6 | "Do not assume a recipient's payout equals their personal contribution" | Seeded values happen to equal each recipient's contribution; the application never derives payouts, they are stored and editable | Complies with the intent: no automatic derivation, no equal-split assumption. |
-| §13 | "Do not mark members as paid based on combined group totals" | Unchanged | Status is computed per member from obligation vs. valid payments. |
+| 2, 8 | Supabase Auth | A hard coded credential and a signed cookie | There is no `auth.users` identity. Mitigated by the server side session checks in the proxy and in every server action. The swap point is `src/lib/auth.ts` alone |
+| 7, 8 | RLS restricts access to authorised administrators | RLS is a deny all backstop for anon and authenticated, while the postgres role bypasses RLS, so the session cookie is the real gate | Documented in section 6.4, with the hardening path |
+| 8 | "Never expose the Supabase service-role key in browser code" | The service role key is not used at all | Stricter than the plan |
+| 6 | A recipient's payout must not be assumed to equal their personal contribution | The seeded values happen to equal each recipient's contribution, but the application never derives payouts. They are stored and edited | Complies with the intent: no automatic derivation and no equal split assumption |
+| 13 | Do not mark members paid from combined group totals | Unchanged | Status is computed per member from the obligation and that member's valid payments |
 
-### 25.3 Required configuration
+### 15.3 What was verified, and how
 
-`.env.local` (gitignored, **never committed**):
-
-| Variable | Purpose | Supplied |
-|---|---|---|
-| `DATABASE_URL` | Runtime connection — transaction-mode pooler, port 6543 | Yes |
-| `DIRECT_URL` | Migrations — session-mode pooler, port 5432 | Yes |
-| `ADMIN_EMAIL` | Administrator login identity | Yes |
-| `ADMIN_PASSWORD` | Administrator login secret | Yes |
-| `SESSION_SECRET` | HMAC key for the session cookie, ≥256-bit random | Generated locally |
-
-`.env.example` contains these names with placeholder values only.
-
-On Vercel the same variables must be set in **Project → Settings → Environment Variables**;
-they are not read from `.env.local` in production.
-
-### 25.4 Outstanding risks and follow-ups for the owner
-
-1. **Rotate `ADMIN_PASSWORD` before any public deployment.** The current value is weak and was
-   shared in a chat transcript.
-2. **Add Vercel deployment protection** if the URL should not be publicly reachable — the
-   application has one static credential, so a second locked door is worthwhile.
-3. **Never commit `.env.local`.** The repository's `.gitignore` covers it; verify before the
-   first push.
-4. **Backups:** the database is the only system of record. `BACKUP.md` documents the daily
-   `pg_dump` schedule and the restore procedure.
-5. **The seed's payout plan is a starting point.** Review the Section 6.1 table in the app's
-   Timeline screen and edit `planned_amount` before the first disbursement.
-6. **The Supabase project password is known outside the deployment.** It has been shared in a
-   chat transcript. Rotate it from the Supabase dashboard and update `DATABASE_URL` and
-   `DIRECT_URL` in `.env.local` and in the Vercel environment variables.
-7. **The physical repository folder is still named `Cheeti-Manager`.** The application, the
-   package and the documentation all use *Yasir Ledger*; only the folder on disk keeps the old
-   name. It could not be renamed while the editor held it open.
-
-### 25.5 What was verified, and how
-
-| Claim | How it was verified |
+| Claim | How |
 |---|---|
-| The 17 contributions total ₹1,00,000 | `npm run db:verify` against the live database — 10,000,000 paise, and every round's obligations total the same |
-| The seed is idempotent | The seed was run twice; the row counts did not change. Asserted again in the integration tests. |
-| No payment history is fabricated | The seed never creates a payment row; this is asserted by the integration test that re-runs the seed and compares the payment count before and after. |
-| The publishable key cannot reach the data | `GET`, `POST` and `DELETE` on all eight tables return 401. Checked by `npm run db:check` and by the integration tests. |
-| The audit trail cannot be rewritten | The integration tests assert that `UPDATE` and `DELETE` on `audit_logs` are both rejected. |
-| Reversed payments leave the totals | Integration test: after a reversal the collected total is 0 and both entries remain in the ledger. |
-| A duplicate submission is not recorded twice | Integration test: the same idempotency key twice produces one row and returns the original payment id. |
-| The route protection works | The end-to-end check replays the real login form: unauthenticated → 307, wrong password → no cookie, correct password → cookie, then every screen renders. |
-| The screens work on a phone | `scripts/visual-check.mjs` drives the installed Chrome through every screen at 390, 768 and 1280 pixels wide, and asserts no horizontal overflow, no missing content and no console errors — 54 checks. It found and fixed three real defects. |
-| The tests do not touch the real data | Every integration test runs inside a rolled-back transaction; the row counts and the audit trail were checked afterwards and were unchanged. |
-| The schema and the code agree | `prisma db pull` shows no drift between `prisma/schema.prisma` and the migrated tables. |
+| The 17 contributions total Rs 1,00,000 | `db:verify` against the live database, and the same check in the integration tests |
+| The seed is idempotent | The seed was run twice with no row count change, asserted again in the tests |
+| No payment history is fabricated | The seed creates no payment row, asserted by the test that re-runs the seed and compares the payment count before and after |
+| The publishable key cannot reach the data | GET, POST and DELETE on all eight tables return 401. Checked by `db:check` and by the integration tests |
+| The audit trail cannot be rewritten | The integration tests assert that UPDATE and DELETE are both rejected |
+| Reversed payments leave the totals | Integration test: after a reversal the collected total is zero and both entries remain in the ledger |
+| A duplicate submission is not recorded twice | Integration test: the same key twice produces one row and returns the original payment id |
+| The route protection works | The end to end script replays the real login form: unauthenticated gives 307, a wrong password gives no cookie, the correct password gives a cookie, then every screen renders |
+| The screens work on a phone | 54 layout checks in real Chrome at 390, 768 and 1280 pixels, checking for horizontal overflow, missing content and console errors |
+| The tests do not touch the real data | Every integration test runs inside a rolled back transaction, and the row counts and the audit trail were checked afterwards |
+| The schema and the code agree | `prisma db pull` shows no drift |
+
+---
+
+## 16. Outstanding work
+
+1. **Rotate `ADMIN_PASSWORD` before the application is deployed publicly.** The
+   current value is short and has been shared in a chat transcript.
+2. **Rotate the Supabase database password.** It was also shared. Update
+   `DATABASE_URL` and `DIRECT_URL` in `.env.local` and in the Vercel
+   environment variables.
+3. **Set up the backups** once the deployment is live.
+4. **Review the seeded payout plan** on the Timeline screen and adjust the
+   planned amounts to match the actual arrangement before the first
+   disbursement.
+5. **Consider Vercel deployment protection.** The application has one static
+   password, so a second locked door is worthwhile.
+6. **The repository folder is still named `Cheeti-Manager`.** The application,
+   the package and this document all use Yasir Ledger. The folder could not be
+   renamed while the editor held it open.
+7. **Nothing has been deployed yet.** The application runs locally against the
+   live Supabase project.
+
+---
+
+Yasir Ledger · Cheeti contribution scheme · Managed by Yasir

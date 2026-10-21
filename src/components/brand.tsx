@@ -2,8 +2,10 @@ import { appConfig } from "@/config/app";
 import { cn } from "@/lib/utils";
 
 /**
- * The "Y" monogram. Rendered as text rather than an image so it is crisp on every
- * screen density, needs no asset request and inherits the theme colours.
+ * The "Y" monogram.
+ *
+ * Drawn with type rather than an image so it stays crisp at any size, costs no
+ * request and picks up the theme automatically.
  */
 export function BrandMark({
   className,
@@ -13,16 +15,16 @@ export function BrandMark({
   size?: "sm" | "default" | "lg";
 }) {
   const sizes = {
-    sm: "h-9 w-9 rounded-lg text-lg",
-    default: "h-12 w-12 rounded-xl text-2xl",
-    lg: "h-20 w-20 rounded-2xl text-4xl",
+    sm: "h-8 w-8 rounded-[0.55rem] text-[0.95rem]",
+    default: "h-11 w-11 rounded-[0.8rem] text-xl",
+    lg: "h-16 w-16 rounded-[1.15rem] text-3xl",
   } as const;
 
   return (
     <div
       aria-hidden="true"
       className={cn(
-        "flex shrink-0 select-none items-center justify-center bg-gradient-to-br from-primary to-primary/65 font-semibold tracking-tight text-primary-foreground shadow-md",
+        "flex shrink-0 select-none items-center justify-center bg-primary font-display font-semibold tracking-[-0.04em] text-primary-foreground shadow-[0_1px_2px_rgb(16_18_27/0.18),0_8px_20px_-10px_rgb(16_18_27/0.5)] ring-1 ring-black/5",
         sizes[size],
         className,
       )}
@@ -44,7 +46,7 @@ export function BrandLockup({
     <div className={cn("space-y-0.5", className)}>
       <p
         className={cn(
-          "font-semibold tracking-tight",
+          "font-display font-semibold tracking-[-0.02em]",
           size === "sm" ? "text-sm" : "text-lg",
         )}
       >

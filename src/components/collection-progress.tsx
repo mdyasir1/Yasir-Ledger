@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+
 /** A thin collection progress bar. */
 export function CollectionProgress({
   value,
@@ -8,6 +10,7 @@ export function CollectionProgress({
   className?: string;
 }) {
   const percent = Math.max(0, Math.min(1, value)) * 100;
+  const complete = percent >= 99.5;
 
   return (
     <div className={className}>
@@ -16,15 +19,23 @@ export function CollectionProgress({
         aria-valuenow={Math.round(percent)}
         aria-valuemin={0}
         aria-valuemax={100}
-        className="h-2 w-full overflow-hidden rounded-full bg-muted"
+        className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
       >
         <div
-          className="h-full rounded-full bg-primary transition-[width]"
+          className={cn(
+            "h-full rounded-full transition-[width] duration-500",
+            complete
+              ? "bg-emerald-500"
+              : "bg-primary",
+          )}
           style={{ width: `${percent}%` }}
         />
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {percent.toFixed(0)}% of the expected amount collected
+      <p className="mt-2 text-[0.75rem] text-muted-foreground">
+        <span className="numeric font-medium text-foreground">
+          {percent.toFixed(0)}%
+        </span>{" "}
+        of the expected amount collected
       </p>
     </div>
   );

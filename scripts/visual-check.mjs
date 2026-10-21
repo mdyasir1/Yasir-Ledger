@@ -146,7 +146,7 @@ await writeFile(
   "utf8",
 );
 
-console.log("\nYasir Ledger — responsive layout check\n");
+console.log("\nYasir Ledger: responsive layout check\n");
 for (const result of results) {
   console.log(
     `  [${result.passed ? "PASS" : "FAIL"}] ${result.name}\n         ${result.detail}`,

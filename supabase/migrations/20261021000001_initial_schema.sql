@@ -1,5 +1,5 @@
 -- =============================================================================
--- Yasir Ledger — 0001 initial schema
+-- Yasir Ledger, 0001 initial schema
 --
 -- All monetary columns are integer PAISE in BIGINT columns.
 -- Rs 1,00,000 = 10000000 paise. No floating point, no decimal.

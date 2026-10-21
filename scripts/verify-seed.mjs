@@ -309,7 +309,7 @@ async function main() {
     await client.end();
   }
 
-  console.log("\nYasir Ledger — seeded scheme verification\n");
+  console.log("\nYasir Ledger: seeded scheme verification\n");
   for (const result of checks) {
     const mark = result.passed ? "PASS" : "FAIL";
     console.log(`  [${mark}] ${result.name}`);

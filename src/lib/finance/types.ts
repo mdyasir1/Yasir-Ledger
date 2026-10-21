@@ -19,6 +19,16 @@ export const PAYMENT_STATUSES: PaymentStatus[] = [
   "not_applicable",
 ];
 
+export const PAYMENT_METHOD_LABELS: Record<
+  "upi" | "bank_transfer" | "cash" | "other",
+  string
+> = {
+  upi: "UPI",
+  bank_transfer: "Bank transfer",
+  cash: "Cash",
+  other: "Other",
+};
+
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   not_paid: "Not paid",
   partially_paid: "Partially paid",

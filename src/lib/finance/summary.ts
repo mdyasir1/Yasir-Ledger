@@ -63,7 +63,7 @@ export function buildMemberPosition(input: {
 /**
  * Aggregates a round.
  *
- * Expected collection is the sum of the applicable obligations — never a
+ * Expected collection is the sum of the applicable obligations, never a
  * hardcoded target. Outstanding is the sum of each member's positive
  * outstanding balance.
  */

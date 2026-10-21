@@ -1,5 +1,5 @@
 -- =============================================================================
--- Yasir Ledger — 0002 row level security
+-- Yasir Ledger, 0002 row level security
 --
 -- The project's publishable key is public by design. Anyone who obtains it must
 -- not be able to read or write financial data through PostgREST.

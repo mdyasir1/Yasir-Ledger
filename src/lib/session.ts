@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 /**
  * Session token format: `base64url(payload).base64url(HMAC-SHA256(payload))`.
  *
- * The token is stateless — nothing is stored server side. Rotating SESSION_SECRET
+ * The token is stateless, so nothing is stored server side. Rotating SESSION_SECRET
  * invalidates every issued session at once.
  */
 export type SessionPayload = {

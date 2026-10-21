@@ -75,7 +75,7 @@ export function formatRupeesPlain(rupees: number): string {
 }
 
 /**
- * Format a rupee amount the way a receipt should read it — always with two
+ * Format a rupee amount the way a receipt should read it, always with two
  * decimal places, e.g. "₹2,500.00".
  */
 export function formatPaiseExact(paise: Paise): string {

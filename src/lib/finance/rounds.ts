@@ -26,7 +26,7 @@ export function roundLabel(year: number, month: number): string {
   return `${MONTH_NAMES[month - 1] ?? month} ${year}`;
 }
 
-/** "2026-10" — a stable, sortable key for a round. */
+/** A stable, sortable key for a round, for example "2026-10". */
 export function roundKey(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, "0")}`;
 }

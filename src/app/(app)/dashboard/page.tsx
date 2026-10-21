@@ -34,7 +34,10 @@ export default async function DashboardPage({
 }) {
   const params = await searchParams;
   const rounds = await getRounds();
-  const selected = resolveSelectedRound(rounds, params.round as string | undefined);
+  const selected = resolveSelectedRound(
+    rounds,
+    params.round as string | undefined,
+  );
 
   if (!selected) {
     return (
@@ -90,9 +93,7 @@ export default async function DashboardPage({
               roundName: round.roundName,
             }))}
             selectedId={selected.id}
-            searchParams={{
-              round: selected.id,
-            }}
+            searchParams={{ round: selected.id }}
           />
         }
       />
@@ -107,7 +108,11 @@ export default async function DashboardPage({
         <StatCard
           label="Collected"
           value={formatPaise(summary.collectedTotal)}
-          tone={summary.collectedTotal >= summary.expectedTotal ? "positive" : "default"}
+          tone={
+            summary.collectedTotal >= summary.expectedTotal
+              ? "positive"
+              : "default"
+          }
           icon={CircleDollarSign}
         />
         <StatCard
@@ -119,35 +124,44 @@ export default async function DashboardPage({
         <StatCard
           label="Members paid"
           value={`${summary.paidCount} of ${summary.memberCount - summary.notApplicableCount}`}
-          hint={`${summary.partiallyPaidCount} partial · ${summary.pendingCount} pending`}
+          hint={`${summary.partiallyPaidCount} partial, ${summary.pendingCount} pending`}
           icon={Users}
         />
       </StatGrid>
 
       <Card className="shadow-none">
-        <CardContent className="p-4">
+        <CardContent className="p-4 sm:p-5">
           <CollectionProgress value={summary.collectionProgress} />
         </CardContent>
       </Card>
 
       {warnings.length > 0 ? (
-        <Card className="shadow-none border-amber-300 dark:border-amber-800">
+        <Card className="shadow-none ring-amber-500/25">
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle
-                className="size-4 text-amber-600"
-                aria-hidden="true"
-              />
+            <CardTitle className="flex items-center gap-2">
+              <span className="flex size-7 items-center justify-center rounded-[0.55rem] bg-amber-500/12 text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="size-4" aria-hidden="true" />
+              </span>
               Reconciliation
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-1.5">
+          <CardContent className="space-y-2">
             {warnings.map((warning) => (
               <p
                 key={warning.code}
-                className="flex items-start gap-2 text-sm"
+                className="flex items-start gap-2.5 text-[0.8125rem] leading-relaxed"
                 role={warning.severity === "critical" ? "alert" : undefined}
               >
+                <span
+                  aria-hidden="true"
+                  className={
+                    warning.severity === "critical"
+                      ? "mt-1.5 size-1.5 shrink-0 rounded-full bg-red-500"
+                      : warning.severity === "warning"
+                        ? "mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500"
+                        : "mt-1.5 size-1.5 shrink-0 rounded-full bg-muted-foreground/40"
+                  }
+                />
                 <span
                   className={
                     warning.severity === "critical"
@@ -157,25 +171,22 @@ export default async function DashboardPage({
                         : "text-muted-foreground"
                   }
                 >
-                  {warning.severity === "critical"
-                    ? "Critical:"
-                    : warning.severity === "warning"
-                      ? "Check:"
-                      : "Note:"}
+                  {warning.message}
                 </span>
-                <span>{warning.message}</span>
               </p>
             ))}
           </CardContent>
         </Card>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         <Card className="shadow-none">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center justify-between text-base">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <CalendarClock className="size-4" aria-hidden="true" />
+                <span className="flex size-7 items-center justify-center rounded-[0.55rem] bg-muted text-muted-foreground">
+                  <CalendarClock className="size-4" aria-hidden="true" />
+                </span>
                 Next payout
               </span>
               <Button variant="ghost" size="sm" render={<Link href="/timeline" />}>
@@ -187,39 +198,40 @@ export default async function DashboardPage({
           <CardContent className="space-y-3">
             {nextRound ? (
               <>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-[0.8125rem] text-muted-foreground">
                   {nextRound.roundName}
                 </p>
-                <ul className="space-y-1.5">
+                <ul className="space-y-2">
                   {nextRound.recipients.map((recipient) => (
                     <li
                       key={recipient.id}
-                      className="flex items-center justify-between text-sm"
+                      className="flex items-center justify-between gap-3 text-[0.8125rem]"
                     >
                       <span className="font-medium">{recipient.fullName}</span>
-                      <span className="tabular-nums text-muted-foreground">
+                      <span className="numeric text-muted-foreground">
                         {formatPaise(recipient.plannedAmount)}
                       </span>
                     </li>
                   ))}
                 </ul>
-                <div className="grid grid-cols-2 gap-2 border-t pt-3 text-sm">
+                <div className="rule my-1" />
+                <div className="grid grid-cols-2 gap-4 pt-1 text-[0.8125rem]">
                   <div>
-                    <p className="text-xs text-muted-foreground">Planned</p>
-                    <p className="font-semibold tabular-nums">
+                    <p className="eyebrow">Planned</p>
+                    <p className="numeric mt-1 font-display text-lg font-semibold tracking-[-0.02em]">
                       {formatPaise(nextRound.plannedTotal)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Disbursed</p>
-                    <p className="font-semibold tabular-nums">
+                    <p className="eyebrow">Disbursed</p>
+                    <p className="numeric mt-1 font-display text-lg font-semibold tracking-[-0.02em]">
                       {formatPaise(nextRound.actualTotal)}
                     </p>
                   </div>
                 </div>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-[0.8125rem] text-muted-foreground">
                 No recipients have been scheduled yet.
               </p>
             )}
@@ -227,10 +239,12 @@ export default async function DashboardPage({
         </Card>
 
         <Card className="shadow-none">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center justify-between text-base">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <Clock className="size-4" aria-hidden="true" />
+                <span className="flex size-7 items-center justify-center rounded-[0.55rem] bg-muted text-muted-foreground">
+                  <Clock className="size-4" aria-hidden="true" />
+                </span>
                 Recent transactions
               </span>
               <Button
@@ -245,34 +259,34 @@ export default async function DashboardPage({
           </CardHeader>
           <CardContent>
             {recentPayments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-[0.8125rem] text-muted-foreground">
                 No payments have been recorded yet.
               </p>
             ) : (
-              <ul className="space-y-2">
+              <ul className="space-y-1">
                 {recentPayments.map((payment) => (
                   <li
                     key={payment.id}
-                    className="flex items-center justify-between gap-3 text-sm"
+                    className="flex items-center justify-between gap-3 rounded-[0.6rem] px-2 py-2 text-[0.8125rem] transition-colors hover:bg-accent/60"
                   >
                     <div className="min-w-0">
                       <p className="truncate font-medium">{payment.memberName}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-[0.6875rem] text-muted-foreground">
                         {payment.roundName} · {formatDateTime(payment.receivedAt)}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="tabular-nums font-medium">
+                      <p className="numeric font-medium">
                         {formatPaise(payment.amount)}
                       </p>
                       {payment.isReversal ? (
-                        <Badge variant="secondary" className="text-[10px]">
+                        <Badge variant="secondary" className="mt-0.5 h-4 px-1.5 text-[0.625rem]">
                           Reversal
                         </Badge>
                       ) : payment.isReversed ? (
                         <Badge
                           variant="outline"
-                          className="text-[10px] text-red-600"
+                          className="mt-0.5 h-4 px-1.5 text-[0.625rem] text-destructive"
                         >
                           Reversed
                         </Badge>
@@ -287,16 +301,20 @@ export default async function DashboardPage({
       </div>
 
       <Card className="shadow-none">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Bell className="size-4" aria-hidden="true" />
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2">
+            <span className="flex size-7 items-center justify-center rounded-[0.55rem] bg-muted text-muted-foreground">
+              <Bell className="size-4" aria-hidden="true" />
+            </span>
             Need a reminder
-            <Badge variant="secondary">{needingReminders.length}</Badge>
+            <Badge variant="secondary" className="ml-1">
+              {needingReminders.length}
+            </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
           {needingReminders.length === 0 ? (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <p className="flex items-center gap-2 text-[0.8125rem] text-muted-foreground">
               <CheckCircle2
                 className="size-4 text-emerald-600"
                 aria-hidden="true"
@@ -308,13 +326,13 @@ export default async function DashboardPage({
               {needingReminders.slice(0, 8).map((position) => (
                 <li
                   key={position.memberId}
-                  className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
+                  className="flex items-center justify-between gap-3 rounded-[0.7rem] border border-border/70 px-3 py-2.5"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
+                    <p className="truncate text-[0.8125rem] font-medium">
                       {position.fullName}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="numeric text-[0.6875rem] text-muted-foreground">
                       {formatPaise(position.outstanding)} outstanding
                     </p>
                   </div>

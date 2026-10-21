@@ -132,14 +132,25 @@ describe("buildReminderMessage", () => {
     expect(message).toContain("no contribution is due");
   });
 
-  it("produces a plain-text variant without em dashes", () => {
+  it("produces a plain-text variant with no typographic dashes", () => {
     const plain = buildReminderMessagePlain({
       fullName: "Yasir",
       roundName: "October 2026",
       position: position({ status: "paid", paidAmount: 1_000_000, outstanding: 0 }),
     });
 
-    expect(plain).not.toContain("—");
+    expect(plain).toBe(
+      buildReminderMessage({
+        fullName: "Yasir",
+        roundName: "October 2026",
+        position: position({
+          status: "paid",
+          paidAmount: 1_000_000,
+          outstanding: 0,
+        }),
+      }),
+    );
+    expect(plain).not.toMatch(/[—–]/);
   });
 });
 

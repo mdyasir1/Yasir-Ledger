@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/datetime";
 import { toCsv } from "@/lib/finance/csv";
+import { PAYMENT_METHOD_LABELS } from "@/lib/finance/types";
 import { formatPaise } from "@/lib/money";
 import type {
   TransactionFilterOptions,
@@ -140,10 +141,12 @@ export function TransactionsView({
         }
       />
 
-      <Card className="shadow-none">
-        <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
+      <Card className="shadow-card">
+        <CardContent className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-5 sm:p-5">
           <div className="space-y-1.5">
-            <Label htmlFor="filter-round">Month</Label>
+            <Label htmlFor="filter-round" className="text-[0.75rem]">
+              Month
+            </Label>
             <Select
               value={currentFilters.roundId ?? "all"}
               onValueChange={(value) =>
@@ -165,7 +168,7 @@ export function TransactionsView({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="filter-member">Member</Label>
+            <Label htmlFor="filter-member" className="text-[0.75rem]">Member</Label>
             <Select
               value={currentFilters.memberId ?? "all"}
               onValueChange={(value) =>
@@ -187,7 +190,7 @@ export function TransactionsView({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="filter-method">Method</Label>
+            <Label htmlFor="filter-method" className="text-[0.75rem]">Method</Label>
             <Select
               value={currentFilters.paymentMethod ?? "all"}
               onValueChange={(value) =>
@@ -211,7 +214,7 @@ export function TransactionsView({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="filter-from">From</Label>
+            <Label htmlFor="filter-from" className="text-[0.75rem]">From</Label>
             <Input
               id="filter-from"
               type="date"
@@ -223,7 +226,7 @@ export function TransactionsView({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="filter-to">To</Label>
+            <Label htmlFor="filter-to" className="text-[0.75rem]">To</Label>
             <Input
               id="filter-to"
               type="date"
@@ -235,7 +238,7 @@ export function TransactionsView({
           </div>
 
           <div className="space-y-1.5 sm:col-span-2 lg:col-span-5">
-            <Label htmlFor="filter-status">Status</Label>
+            <Label htmlFor="filter-status" className="text-[0.75rem]">Status</Label>
             <Select
               value={currentFilters.status ?? "all"}
               onValueChange={(value) =>
@@ -255,14 +258,19 @@ export function TransactionsView({
       </Card>
 
       {transactions.length === 0 ? (
-        <p className="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
-          No transactions match these filters.
-        </p>
+        <div className="rounded-2xl border border-dashed border-border/80 px-4 py-14 text-center">
+          <p className="font-display text-[0.95rem] font-semibold">
+            Nothing to show
+          </p>
+          <p className="mt-1 text-[0.8125rem] text-muted-foreground">
+            No transactions match these filters.
+          </p>
+        </div>
       ) : (
-        <div className="rounded-lg border">
+        <div className="overflow-hidden rounded-2xl bg-card shadow-card ring-1 ring-foreground/[0.06]">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
                 <TableHead>Date</TableHead>
                 <TableHead>Member</TableHead>
                 <TableHead>Month</TableHead>
@@ -275,24 +283,27 @@ export function TransactionsView({
             </TableHeader>
             <TableBody>
               {transactions.map((transaction) => (
-                <TableRow key={transaction.id}>
-                  <TableCell className="whitespace-nowrap text-muted-foreground">
+                <TableRow
+                  key={transaction.id}
+                  className="border-border/60 transition-colors hover:bg-muted/25"
+                >
+                  <TableCell className="numeric whitespace-nowrap text-[0.8125rem] text-muted-foreground">
                     {formatDateTime(transaction.receivedAt)}
                   </TableCell>
-                  <TableCell className="font-medium">
+                  <TableCell className="text-[0.8125rem] font-medium">
                     {transaction.memberName}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="text-[0.8125rem] text-muted-foreground">
                     {transaction.roundName}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {formatPaise(transaction.amount)}
                   </TableCell>
-                  <TableCell className="capitalize">
-                    {transaction.paymentMethod.replace("_", " ")}
+                  <TableCell className="text-[0.8125rem]">
+                    {PAYMENT_METHOD_LABELS[transaction.paymentMethod]}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {transaction.transactionReference ?? "—"}
+                    {transaction.transactionReference ?? "-"}
                   </TableCell>
                   <TableCell>
                     {transaction.isReversal ? (

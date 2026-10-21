@@ -34,15 +34,16 @@ const PAYMENT_METHODS = [
   { value: "other", label: "Other" },
 ] as const;
 
+
 function SubmitButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" disabled={pending || disabled}>
+    <Button type="submit" size="lg" disabled={pending || disabled}>
       {pending ? (
         <>
           <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-          Saving…
+          Saving
         </>
       ) : (
         "Record payment"
@@ -135,7 +136,7 @@ export function RecordPaymentDialog({
         {!isOnline ? (
           <div
             role="alert"
-            className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+            className="flex items-start gap-2.5 rounded-[0.7rem] bg-amber-500/10 px-3.5 py-2.5 text-[0.8125rem] leading-relaxed text-amber-800 ring-1 ring-amber-500/20 dark:text-amber-200"
           >
             <WifiOff className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
             <span>
@@ -145,13 +146,15 @@ export function RecordPaymentDialog({
           </div>
         ) : null}
 
-        <form action={formAction} className="space-y-4">
+        <form action={formAction} className="space-y-5">
           <input type="hidden" name="roundId" value={roundId} />
           <input type="hidden" name="memberId" value={memberId} />
           <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
 
           <div className="space-y-2">
-            <Label htmlFor="amountRupees">Amount received</Label>
+            <Label htmlFor="amountRupees" className="text-[0.8125rem]">
+              Amount received
+            </Label>
             <div className="flex gap-2">
               <Input
                 id="amountRupees"
@@ -163,13 +166,13 @@ export function RecordPaymentDialog({
                 required
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
-                className="tabular-nums"
+                className="numeric h-11 text-[0.95rem] font-medium"
               />
               {outstandingAmount > 0 ? (
                 <Button
                   type="button"
                   variant="outline"
-                  className="shrink-0"
+                  className="h-11 shrink-0"
                   onClick={() =>
                     setAmount(String(paiseToRupees(outstandingAmount)))
                   }
@@ -178,74 +181,90 @@ export function RecordPaymentDialog({
                 </Button>
               ) : null}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Outstanding: {formatPaise(outstandingAmount)} · Expected:{" "}
+            <p className="numeric text-[0.75rem] text-muted-foreground">
+              Outstanding {formatPaise(outstandingAmount)} · Expected{" "}
               {formatPaise(expectedAmount)}
             </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="paymentMethod">Paid by</Label>
-            <Select
-              name="paymentMethod"
-              value={method}
-              onValueChange={(value) => {
-                if (value) setMethod(value);
-              }}
-            >
-              <SelectTrigger id="paymentMethod" className="w-full">
-                <SelectValue>
-                  {PAYMENT_METHODS.find((entry) => entry.value === method)?.label ??
-                    "UPI"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {PAYMENT_METHODS.map((entry) => (
-                  <SelectItem key={entry.value} value={entry.value}>
-                    {entry.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="paymentMethod" className="text-[0.8125rem]">
+                Paid by
+              </Label>
+              <Select
+                name="paymentMethod"
+                value={method}
+                onValueChange={(value) => {
+                  if (value) setMethod(value);
+                }}
+              >
+                <SelectTrigger id="paymentMethod" className="h-11 w-full">
+                  <SelectValue>
+                    {PAYMENT_METHODS.find((entry) => entry.value === method)
+                      ?.label ?? "UPI"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_METHODS.map((entry) => (
+                    <SelectItem key={entry.value} value={entry.value}>
+                      {entry.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="receivedAt" className="text-[0.8125rem]">
+                Received on
+              </Label>
+              <Input
+                id="receivedAt"
+                name="receivedAt"
+                type="datetime-local"
+                required
+                value={receivedAt}
+                onChange={(event) => setReceivedAt(event.target.value)}
+                className="h-11"
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="receivedAt">Received on</Label>
-            <Input
-              id="receivedAt"
-              name="receivedAt"
-              type="datetime-local"
-              required
-              value={receivedAt}
-              onChange={(event) => setReceivedAt(event.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Asia/Kolkata time. Enter the date the money actually arrived.
-            </p>
-          </div>
+          <p className="text-[0.6875rem] text-muted-foreground">
+            The date and time are read as Asia/Kolkata time. Enter the moment
+            the money actually arrived.
+          </p>
 
           <div className="space-y-2">
-            <Label htmlFor="transactionReference">Reference (optional)</Label>
+            <Label htmlFor="transactionReference" className="text-[0.8125rem]">
+              Reference (optional)
+            </Label>
             <Input
               id="transactionReference"
               name="transactionReference"
               type="text"
               maxLength={120}
               placeholder="UPI or transaction number"
+              className="h-10"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="note">Note (optional)</Label>
+            <Label htmlFor="note" className="text-[0.8125rem]">
+              Note (optional)
+            </Label>
             <Textarea id="note" name="note" rows={2} maxLength={500} />
           </div>
 
-          <p className="rounded-lg bg-muted px-3 py-2 text-sm">
-            Balance after this payment:{" "}
-            <span className="font-semibold tabular-nums">
+          <div className="flex items-center justify-between rounded-[0.8rem] bg-muted/60 px-4 py-3">
+            <span className="text-[0.8125rem] text-muted-foreground">
+              Balance after this payment
+            </span>
+            <span className="numeric font-display text-lg font-semibold tracking-[-0.02em]">
               {formatPaise(resultingBalance)}
             </span>
-          </p>
+          </div>
 
           <DialogFooter>
             <Button

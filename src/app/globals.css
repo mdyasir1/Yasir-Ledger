@@ -4,12 +4,21 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================================================
+   Yasir Ledger design tokens
+
+   A quiet, precise financial surface. Warm paper background, pure white
+   cards, hairline borders, one deep ink accent, and colour reserved strictly
+   for meaning: money owed, money received, money returned.
+   ========================================================================== */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-intertight);
+  --font-mono: var(--font-jetbrains);
+  --font-heading: var(--font-intertight);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -27,119 +36,195 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+
+  --radius-sm: calc(var(--radius) * 0.55);
+  --radius-md: calc(var(--radius) * 0.75);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-xl: calc(var(--radius) * 1.3);
+  --radius-2xl: calc(var(--radius) * 1.7);
   --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-4xl: calc(var(--radius) * 2.7);
+
+  --shadow-card: 0 1px 2px 0 rgb(16 18 27 / 0.04),
+    0 10px 30px -18px rgb(16 18 27 / 0.18);
+  --shadow-raised: 0 1px 2px 0 rgb(16 18 27 / 0.05),
+    0 18px 40px -20px rgb(16 18 27 / 0.28);
+  --shadow-overlay: 0 24px 60px -24px rgb(16 18 27 / 0.35);
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* Surfaces */
+  --background: oklch(0.983 0.003 95);
+  --foreground: oklch(0.222 0.014 268);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.222 0.014 268);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --popover-foreground: oklch(0.222 0.014 268);
+
+  /* One deep ink accent, used for actions and emphasis */
+  --primary: oklch(0.276 0.045 274);
+  --primary-foreground: oklch(0.988 0.002 95);
+
+  --secondary: oklch(0.966 0.004 95);
+  --secondary-foreground: oklch(0.276 0.045 274);
+  --muted: oklch(0.964 0.004 95);
+  --muted-foreground: oklch(0.528 0.014 268);
+  --accent: oklch(0.957 0.005 95);
+  --accent-foreground: oklch(0.222 0.014 268);
+
+  --destructive: oklch(0.588 0.19 25);
+
+  --border: oklch(0.916 0.005 95);
+  --input: oklch(0.9 0.006 95);
+  --ring: oklch(0.276 0.045 274);
+
+  --chart-1: oklch(0.55 0.13 160);
+  --chart-2: oklch(0.62 0.14 75);
+  --chart-3: oklch(0.58 0.16 295);
+  --chart-4: oklch(0.6 0.19 25);
+  --chart-5: oklch(0.276 0.045 274);
+
+  --radius: 0.75rem;
+
+  --sidebar: oklch(0.994 0.002 95);
+  --sidebar-foreground: oklch(0.222 0.014 268);
+  --sidebar-primary: oklch(0.276 0.045 274);
+  --sidebar-primary-foreground: oklch(0.988 0.002 95);
+  --sidebar-accent: oklch(0.957 0.005 95);
+  --sidebar-accent-foreground: oklch(0.222 0.014 268);
+  --sidebar-border: oklch(0.916 0.005 95);
+  --sidebar-ring: oklch(0.276 0.045 274);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: oklch(0.178 0.012 268);
+  --foreground: oklch(0.965 0.004 95);
+  --card: oklch(0.216 0.014 268);
+  --card-foreground: oklch(0.965 0.004 95);
+  --popover: oklch(0.224 0.015 268);
+  --popover-foreground: oklch(0.965 0.004 95);
+
+  --primary: oklch(0.955 0.004 95);
+  --primary-foreground: oklch(0.222 0.014 268);
+
+  --secondary: oklch(0.262 0.016 268);
+  --secondary-foreground: oklch(0.965 0.004 95);
+  --muted: oklch(0.258 0.015 268);
+  --muted-foreground: oklch(0.7 0.014 268);
+  --accent: oklch(0.272 0.017 268);
+  --accent-foreground: oklch(0.965 0.004 95);
+
+  --destructive: oklch(0.68 0.17 25);
+
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 13%);
+  --ring: oklch(0.7 0.014 268);
+
+  --chart-1: oklch(0.7 0.13 160);
+  --chart-2: oklch(0.75 0.13 75);
+  --chart-3: oklch(0.72 0.14 295);
+  --chart-4: oklch(0.7 0.17 25);
+  --chart-5: oklch(0.9 0.005 95);
+
+  --sidebar: oklch(0.198 0.013 268);
+  --sidebar-foreground: oklch(0.965 0.004 95);
+  --sidebar-primary: oklch(0.955 0.004 95);
+  --sidebar-primary-foreground: oklch(0.222 0.014 268);
+  --sidebar-accent: oklch(0.272 0.017 268);
+  --sidebar-accent-foreground: oklch(0.965 0.004 95);
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: oklch(0.7 0.014 268);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring/40;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+
   html {
     @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklch, var(--primary) 16%, transparent);
+  }
+
+  /* Numbers must line up in every column, always. */
+  .numeric {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    letter-spacing: -0.011em;
+  }
+
+  /* Small caps label used above figures and section titles. */
+  .eyebrow {
+    @apply text-[11px] font-semibold tracking-[0.075em] text-muted-foreground uppercase;
+  }
+
+  .display {
+    @apply font-display tracking-[-0.022em];
+  }
+
+  /* A hairline that reads as a drawn rule rather than a box. */
+  .rule {
+    @apply h-px w-full border-0 bg-border;
   }
 }
-/* ── Yasir Ledger ──────────────────────────────────────────────
-   Loader used by the splash screen. Kept here so the animation
-   respects the project's Tailwind theme tokens. */
+
+/* ── Motion ───────────────────────────────────────────────────────────────── */
+
 @theme {
-  --animate-splash: splash 1.3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  --animate-splash: splash 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  --animate-rise: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-fade: fade 0.35s ease-out both;
 
   @keyframes splash {
     0% {
-      transform: translateX(-110%);
+      transform: translateX(-115%);
     }
     100% {
-      transform: translateX(320%);
+      transform: translateX(340%);
+    }
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
     }
   }
 }

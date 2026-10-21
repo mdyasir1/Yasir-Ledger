@@ -25,8 +25,8 @@ import type { MemberPosition } from "@/lib/finance/types";
 /**
  * The reminder composer.
  *
- * The message is generated from the values actually recorded in the database and
- * can be edited before it is sent. Nothing is ever sent automatically.
+ * The message is generated from the values actually recorded in the database
+ * and can be edited before it is sent. Nothing is ever sent automatically.
  */
 export function ReminderDialog({
   open,
@@ -48,15 +48,6 @@ export function ReminderDialog({
   });
   const [message, setMessage] = useState(generated);
   const [copied, setCopied] = useState(false);
-
-  // Keep the generated message in sync when the dialog is opened.
-  const [lastKey, setLastKey] = useState("");
-  const key = `${fullName}-${roundName}-${position.status}-${position.paidAmount}`;
-  if (open && key !== lastKey) {
-    setLastKey(key);
-    setMessage(generated);
-    setCopied(false);
-  }
 
   const whatsappUrl = position.phoneNumber
     ? buildWhatsAppUrl(position.phoneNumber, message)
@@ -87,38 +78,40 @@ export function ReminderDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <dl className="grid grid-cols-3 gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
+          <dl className="grid grid-cols-3 gap-3 rounded-[0.8rem] bg-muted/60 px-4 py-3">
             <div>
-              <dt className="text-xs text-muted-foreground">Expected</dt>
-              <dd className="font-semibold tabular-nums">
+              <dt className="eyebrow">Expected</dt>
+              <dd className="numeric mt-1 font-display text-[0.95rem] font-semibold tracking-[-0.02em]">
                 {formatPaise(position.expectedAmount)}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Paid</dt>
-              <dd className="font-semibold tabular-nums">
+              <dt className="eyebrow">Paid</dt>
+              <dd className="numeric mt-1 font-display text-[0.95rem] font-semibold tracking-[-0.02em]">
                 {formatPaise(position.paidAmount)}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Outstanding</dt>
-              <dd className="font-semibold tabular-nums">
+              <dt className="eyebrow">Outstanding</dt>
+              <dd className="numeric mt-1 font-display text-[0.95rem] font-semibold tracking-[-0.02em] text-destructive">
                 {formatPaise(position.outstanding)}
               </dd>
             </div>
           </dl>
 
           <div className="space-y-2">
-            <Label htmlFor="reminder-message">Message</Label>
+            <Label htmlFor="reminder-message" className="text-[0.8125rem]">
+              Message
+            </Label>
             <Textarea
               id="reminder-message"
               value={message}
               onChange={(event) => setMessage(event.target.value)}
               rows={5}
+              className="text-[0.875rem] leading-relaxed"
             />
-            <p className="text-xs text-muted-foreground">
-              Edit the message if you want to change the wording. Nothing is sent
-              automatically.
+            <p className="text-[0.6875rem] leading-relaxed text-muted-foreground">
+              Edit the wording if you want to. Nothing is sent automatically.
             </p>
           </div>
         </div>

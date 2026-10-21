@@ -92,7 +92,9 @@ function RoundDialog({
 
         <form action={formAction} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="collectionTargetRupees">Collection target</Label>
+            <Label htmlFor="collectionTargetRupees" className="text-[0.8125rem]">
+              Collection target
+            </Label>
             <Input
               id="collectionTargetRupees"
               name="collectionTargetRupees"
@@ -106,7 +108,9 @@ function RoundDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
+            <Label htmlFor="status" className="text-[0.8125rem]">
+              Status
+            </Label>
             <Select name="status" defaultValue={round.status}>
               <SelectTrigger id="status" className="w-full">
                 <SelectValue>
@@ -121,7 +125,9 @@ function RoundDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes (optional)</Label>
+            <Label htmlFor="notes" className="text-[0.8125rem]">
+              Notes (optional)
+            </Label>
             <Textarea
               id="notes"
               name="notes"
@@ -163,12 +169,12 @@ export function SettingsView({
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="shadow-none">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Scheme</CardTitle>
+        <Card className="shadow-card">
+          <CardHeader className="pb-3">
+            <CardTitle>Scheme</CardTitle>
           </CardHeader>
           <CardContent>
-            <dl className="space-y-2 text-sm">
+            <dl className="space-y-2.5 text-[0.8125rem]">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Application</dt>
                 <dd className="font-medium">{appConfig.name}</dd>
@@ -180,8 +186,8 @@ export function SettingsView({
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Period</dt>
                 <dd className="font-medium">
-                  {rounds[0]?.roundName ?? "—"} –{" "}
-                  {rounds[rounds.length - 1]?.roundName ?? "—"}
+                  {rounds[0]?.roundName ?? "-"} –{" "}
+                  {rounds[rounds.length - 1]?.roundName ?? "-"}
                 </dd>
               </div>
               <div className="flex justify-between">
@@ -214,11 +220,11 @@ export function SettingsView({
           </CardContent>
         </Card>
 
-        <Card className="shadow-none">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">About</CardTitle>
+        <Card className="shadow-card">
+          <CardHeader className="pb-3">
+            <CardTitle>About</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <CardContent className="space-y-3 text-[0.8125rem] leading-relaxed text-muted-foreground">
             <p>
               {appConfig.name} is a private contribution-tracking application
               for a cheeti scheme, {appConfig.ownerCredit.toLowerCase()}.
@@ -233,20 +239,20 @@ export function SettingsView({
         </Card>
       </div>
 
-      <Card className="shadow-none">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Monthly rounds</CardTitle>
+      <Card className="shadow-card">
+        <CardHeader className="pb-3">
+          <CardTitle>Monthly rounds</CardTitle>
         </CardHeader>
         <CardContent>
           <ul className="divide-y">
             {rounds.map((round) => (
               <li
                 key={round.id}
-                className="flex items-center justify-between gap-3 py-2.5"
+                className="flex items-center justify-between gap-3 border-b border-border/60 py-3 last:border-0"
               >
                 <div className="min-w-0">
-                  <p className="font-medium">{round.roundName}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[0.875rem] font-medium">{round.roundName}</p>
+                  <p className="numeric text-[0.6875rem] text-muted-foreground">
                     Target {formatPaise(round.collectionTarget)} ·{" "}
                     {round.recipientCount} recipient
                     {round.recipientCount === 1 ? "" : "s"} ·{" "}

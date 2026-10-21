@@ -63,7 +63,7 @@ async function probePublishableKey() {
     record(
       "PostgREST probe (publishable key)",
       true,
-      "skipped — publishable key not configured in .env.local",
+      "skipped, publishable key not configured in .env.local",
     );
     return;
   }
@@ -81,7 +81,7 @@ async function probePublishableKey() {
       record(
         "PostgREST probe (publishable key)",
         true,
-        "table `members` does not exist yet — nothing to leak",
+        "table `members` does not exist yet, so there is nothing to leak",
       );
       return;
     }
@@ -90,7 +90,7 @@ async function probePublishableKey() {
       record(
         "PostgREST probe (publishable key)",
         true,
-        `PostgREST responded ${response.status} — access denied`,
+        `PostgREST responded ${response.status}, access denied`,
       );
       return;
     }
@@ -100,7 +100,7 @@ async function probePublishableKey() {
       record(
         "PostgREST probe (publishable key)",
         true,
-        "RLS returned zero rows — the publishable key cannot read data",
+        "RLS returned zero rows, the publishable key cannot read data",
       );
       return;
     }
@@ -108,7 +108,7 @@ async function probePublishableKey() {
     record(
       "PostgREST probe (publishable key)",
       false,
-      `the publishable key returned ${rows.length} row(s) — RLS is not protecting this table`,
+      `the publishable key returned ${rows.length} row(s), RLS is not protecting this table`,
     );
   } catch (error) {
     record("PostgREST probe (publishable key)", false, error.message);
@@ -153,7 +153,7 @@ if (pooled) {
 
 await probePublishableKey();
 
-console.log("\nYasir Ledger — database check\n");
+console.log("\nYasir Ledger: database check\n");
 for (const result of results) {
   const mark = result.ok ? "PASS" : "FAIL";
   console.log(`  [${mark}] ${result.name}\n         ${result.detail}`);

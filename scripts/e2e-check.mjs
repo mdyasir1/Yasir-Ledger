@@ -31,7 +31,7 @@ function decodeHtml(value) {
  * Reads the hidden fields React puts in a server-action form.
  *
  * Only React's own action metadata is extracted. The visible fields are read
- * by the user, so they are added by the caller — sending them here as well
+ * by the user, so they are added by the caller rather than by this script
  * would post an empty value first, and `FormData.get` returns the first
  * occurrence.
  */
@@ -159,7 +159,7 @@ if (!issued) {
   );
 }
 
-console.log("\nYasir Ledger — end-to-end check\n");
+console.log("\nYasir Ledger: end-to-end check\n");
 for (const result of results) {
   console.log(
     `  [${result.passed ? "PASS" : "FAIL"}] ${result.name}\n         ${result.detail}`,

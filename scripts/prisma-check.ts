@@ -53,7 +53,7 @@ async function main() {
     _count: true,
   });
 
-  console.log("\nYasir Ledger — Prisma data-path check\n");
+  console.log("\nYasir Ledger: Prisma data-path check\n");
   console.log(`  members                 ${members}`);
   console.log(`  monthly_rounds          ${rounds}`);
   console.log(`  contribution_obligations${String(obligations).padStart(4)}`);

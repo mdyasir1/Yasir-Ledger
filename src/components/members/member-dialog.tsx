@@ -99,18 +99,23 @@ export function MemberDialog({
 
         <form action={formAction} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="fullName">Name</Label>
+            <Label htmlFor="fullName" className="text-[0.8125rem]">
+              Name
+            </Label>
             <Input
               id="fullName"
               name="fullName"
               defaultValue={member?.fullName ?? ""}
               required
               maxLength={120}
+              className="h-11"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="phoneNumber">Phone (optional)</Label>
+            <Label htmlFor="phoneNumber" className="text-[0.8125rem]">
+              Phone (optional)
+            </Label>
             <Input
               id="phoneNumber"
               name="phoneNumber"
@@ -118,11 +123,15 @@ export function MemberDialog({
               defaultValue={member?.phoneNumber ?? ""}
               maxLength={30}
               placeholder="+91 98765 43210"
+              className="h-11"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="defaultContributionRupees">
+            <Label
+              htmlFor="defaultContributionRupees"
+              className="text-[0.8125rem]"
+            >
               Default monthly contribution
             </Label>
             <Input
@@ -138,11 +147,12 @@ export function MemberDialog({
                   : ""
               }
               required
+              className="numeric h-11"
             />
           </div>
 
           {!isNew ? (
-            <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+            <div className="flex items-center justify-between rounded-[0.8rem] border border-border/70 px-3.5 py-2.5">
               <Label htmlFor="isActive" className="font-normal">
                 Active member
               </Label>
@@ -156,13 +166,16 @@ export function MemberDialog({
 
           {!isNew ? (
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes (optional)</Label>
+              <Label htmlFor="notes" className="text-[0.8125rem]">
+              Notes (optional)
+            </Label>
               <Textarea
                 id="notes"
                 name="notes"
                 rows={2}
                 maxLength={500}
                 defaultValue={member?.notes ?? ""}
+                className="text-[0.875rem]"
               />
             </div>
           ) : null}

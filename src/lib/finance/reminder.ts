@@ -21,7 +21,7 @@ export function buildReminderMessage(input: {
   }
 
   if (position.status === "paid") {
-    return `Hi ${firstName}, thank you — we have recorded your full contribution of ${formatPaise(
+    return `Hi ${firstName}, thank you. We have recorded your full contribution of ${formatPaise(
       position.expectedAmount,
     )} for ${roundName}.`;
   }
@@ -55,7 +55,7 @@ export function buildReminderMessagePlain(input: {
   roundName: string;
   position: MemberPosition;
 }): string {
-  return buildReminderMessage(input).replace(/—/g, "-");
+  return buildReminderMessage(input);
 }
 
 /** A `wa.me` link with the message pre-filled. */

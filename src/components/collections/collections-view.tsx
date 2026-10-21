@@ -8,9 +8,11 @@ import {
   IndianRupee,
   MessageCircle,
   Phone,
+  Search,
 } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -20,14 +22,24 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDate, formatDateTime } from "@/lib/datetime";
-import type { MemberPosition, PaymentStatus } from "@/lib/finance/types";
+import {
+  PAYMENT_METHOD_LABELS,
+  type MemberPosition,
+  type PaymentStatus,
+} from "@/lib/finance/types";
 import { formatPaise } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { PaymentRow } from "@/lib/data/collection";
 import { RecordPaymentDialog } from "./record-payment-dialog";
 import { ReminderDialog } from "./reminder-dialog";
 
-type Filter = "all" | "pending" | "partially_paid" | "paid" | "overpaid" | "not_applicable";
+type Filter =
+  | "all"
+  | "pending"
+  | "partially_paid"
+  | "paid"
+  | "overpaid"
+  | "not_applicable";
 
 const FILTERS: Array<{ value: Filter; label: string }> = [
   { value: "all", label: "All" },
@@ -47,7 +59,7 @@ function matchesFilter(status: PaymentStatus, filter: Filter): boolean {
 /**
  * The Collections screen.
  *
- * On a phone each member is a compact card; on a wide screen the same data is
+ * On a phone each member is a compact card. On a wide screen the same data is
  * shown as a table. Both use the same numbers.
  */
 export function CollectionsView({
@@ -68,7 +80,9 @@ export function CollectionsView({
     position: MemberPosition;
     idempotencyKey: string;
   } | null>(null);
-  const [reminderTarget, setReminderTarget] = useState<MemberPosition | null>(null);
+  const [reminderTarget, setReminderTarget] = useState<MemberPosition | null>(
+    null,
+  );
 
   const paymentsByMember = useMemo(() => {
     const grouped = new Map<string, PaymentRow[]>();
@@ -106,19 +120,36 @@ export function CollectionsView({
     return result;
   }, [positions]);
 
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <input
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search members by name"
-          aria-label="Search members by name"
-          className="h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-xs"
-        />
+  function openPayment(position: MemberPosition) {
+    setPaymentTarget({
+      position,
+      idempotencyKey: crypto.randomUUID(),
+    });
+  }
 
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter members">
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:max-w-72">
+          <Search
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground/70"
+            aria-hidden="true"
+          />
+          <Input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search members"
+            aria-label="Search members by name"
+            className="h-10 pl-9"
+          />
+        </div>
+
+        <div
+          className="flex flex-wrap gap-1.5"
+          role="group"
+          aria-label="Filter members"
+        >
           {FILTERS.map((entry) => (
             <button
               key={entry.value}
@@ -126,23 +157,30 @@ export function CollectionsView({
               onClick={() => setFilter(entry.value)}
               aria-pressed={filter === entry.value}
               className={cn(
-                "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                "rounded-full border px-3 py-1.5 text-[0.75rem] font-medium transition-colors duration-150",
                 filter === entry.value
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  ? "border-transparent bg-primary text-primary-foreground"
+                  : "border-border/80 text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
             >
               {entry.label}
-              <span className="ml-1 opacity-70">{counts[entry.value]}</span>
+              <span className="numeric ml-1.5 opacity-60">
+                {counts[entry.value]}
+              </span>
             </button>
           ))}
         </div>
       </div>
 
       {visible.length === 0 ? (
-        <p className="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
-          No members match this filter.
-        </p>
+        <div className="rounded-2xl border border-dashed border-border/80 px-4 py-14 text-center">
+          <p className="font-display text-[0.95rem] font-semibold">
+            No members match
+          </p>
+          <p className="mt-1 text-[0.8125rem] text-muted-foreground">
+            Try a different filter or clear the search.
+          </p>
+        </div>
       ) : null}
 
       {/* Mobile: compact cards */}
@@ -152,25 +190,30 @@ export function CollectionsView({
           const isOpen = expanded === position.memberId;
 
           return (
-            <div key={position.memberId} className="rounded-lg border bg-card">
+            <div
+              key={position.memberId}
+              className="overflow-hidden rounded-2xl bg-card shadow-card ring-1 ring-foreground/[0.06]"
+            >
               <button
                 type="button"
                 onClick={() => setExpanded(isOpen ? null : position.memberId)}
-                className="flex w-full items-center justify-between gap-3 p-3 text-left"
+                className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left"
                 aria-expanded={isOpen}
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="truncate font-medium">{position.fullName}</span>
+                    <span className="truncate text-[0.875rem] font-medium">
+                      {position.fullName}
+                    </span>
                     <StatusBadge status={position.status} />
                   </div>
-                  <p className="mt-1 text-sm tabular-nums text-muted-foreground">
+                  <p className="numeric mt-1 text-[0.75rem] text-muted-foreground">
                     Expected {formatPaise(position.expectedAmount)} · Paid{" "}
                     {formatPaise(position.paidAmount)}
                     {position.outstanding > 0 ? (
                       <>
                         {" · "}
-                        <span className="font-medium text-red-600 dark:text-red-400">
+                        <span className="font-medium text-destructive">
                           Due {formatPaise(position.outstanding)}
                         </span>
                       </>
@@ -178,24 +221,22 @@ export function CollectionsView({
                   </p>
                 </div>
                 {isOpen ? (
-                  <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                  <ChevronDown
+                    className="size-4 shrink-0 text-muted-foreground"
+                    aria-hidden="true"
+                  />
                 ) : (
-                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                  <ChevronRight
+                    className="size-4 shrink-0 text-muted-foreground"
+                    aria-hidden="true"
+                  />
                 )}
               </button>
 
               {isOpen ? (
-                <div className="space-y-3 border-t px-3 py-3">
+                <div className="space-y-3 border-t border-border/70 bg-muted/30 px-4 py-3.5">
                   <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() =>
-                        setPaymentTarget({
-                          position,
-                          idempotencyKey: crypto.randomUUID(),
-                        })
-                      }
-                    >
+                    <Button size="sm" onClick={() => openPayment(position)}>
                       <IndianRupee className="size-4" aria-hidden="true" />
                       Record
                     </Button>
@@ -232,10 +273,10 @@ export function CollectionsView({
       </div>
 
       {/* Desktop: table */}
-      <div className="hidden rounded-lg border lg:block">
+      <div className="hidden overflow-hidden rounded-2xl bg-card shadow-card ring-1 ring-foreground/[0.06] lg:block">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead>Member</TableHead>
               <TableHead className="text-right">Expected</TableHead>
               <TableHead className="text-right">Paid</TableHead>
@@ -252,56 +293,62 @@ export function CollectionsView({
 
               return (
                 <>
-                  <TableRow key={position.memberId}>
+                  <TableRow
+                    key={position.memberId}
+                    className="border-border/60 transition-colors hover:bg-muted/25"
+                  >
                     <TableCell className="font-medium">
                       <button
                         type="button"
                         onClick={() => setExpanded(isOpen ? null : position.memberId)}
-                        className="flex items-center gap-1.5 text-left hover:underline"
+                        className="flex items-center gap-1.5 text-left"
                         aria-expanded={isOpen}
                       >
                         {isOpen ? (
-                          <ChevronDown className="size-4" aria-hidden="true" />
+                          <ChevronDown
+                            className="size-3.5 text-muted-foreground"
+                            aria-hidden="true"
+                          />
                         ) : (
-                          <ChevronRight className="size-4" aria-hidden="true" />
+                          <ChevronRight
+                            className="size-3.5 text-muted-foreground"
+                            aria-hidden="true"
+                          />
                         )}
-                        {position.fullName}
+                        <span className="text-[0.8125rem]">
+                          {position.fullName}
+                        </span>
                       </button>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="numeric text-right text-[0.8125rem]">
                       {formatPaise(position.expectedAmount)}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="numeric text-right text-[0.8125rem]">
                       {formatPaise(position.paidAmount)}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="numeric text-right text-[0.8125rem]">
                       {position.outstanding > 0 ? (
-                        <span className="font-medium text-red-600 dark:text-red-400">
+                        <span className="font-medium text-destructive">
                           {formatPaise(position.outstanding)}
                         </span>
                       ) : (
-                        "—"
+                        <span className="text-muted-foreground/50">-</span>
                       )}
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={position.status} />
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    <TableCell className="text-[0.8125rem] text-muted-foreground">
                       {position.latestPaymentAt
                         ? formatDate(position.latestPaymentAt)
-                        : "—"}
+                        : "-"}
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1.5">
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() =>
-                            setPaymentTarget({
-                              position,
-                              idempotencyKey: crypto.randomUUID(),
-                            })
-                          }
+                          onClick={() => openPayment(position)}
                         >
                           Record
                         </Button>
@@ -319,7 +366,10 @@ export function CollectionsView({
 
                   {isOpen ? (
                     <TableRow key={`${position.memberId}-history`}>
-                      <TableCell colSpan={7} className="bg-muted/40">
+                      <TableCell
+                        colSpan={7}
+                        className="bg-muted/30 px-3 py-3"
+                      >
                         <PaymentHistory history={history} />
                       </TableCell>
                     </TableRow>
@@ -333,7 +383,7 @@ export function CollectionsView({
 
       {paymentTarget ? (
         <RecordPaymentDialog
-          open={paymentTarget !== null}
+          open
           onOpenChange={(open) => {
             if (!open) setPaymentTarget(null);
           }}
@@ -350,7 +400,7 @@ export function CollectionsView({
 
       {reminderTarget ? (
         <ReminderDialog
-          open={reminderTarget !== null}
+          open
           onOpenChange={(open) => {
             if (!open) setReminderTarget(null);
           }}
@@ -367,7 +417,7 @@ export function CollectionsView({
 function PaymentHistory({ history }: { history: PaymentRow[] }) {
   if (history.length === 0) {
     return (
-      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+      <p className="flex items-center gap-2 text-[0.8125rem] text-muted-foreground">
         <History className="size-4" aria-hidden="true" />
         No payments recorded yet.
       </p>
@@ -375,21 +425,23 @@ function PaymentHistory({ history }: { history: PaymentRow[] }) {
   }
 
   return (
-    <ul className="space-y-1.5 text-sm">
+    <ul className="space-y-1.5">
       {history.map((payment) => (
         <li
           key={payment.id}
-          className="flex flex-wrap items-center justify-between gap-2"
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8125rem]"
         >
-          <span className="tabular-nums">{formatPaise(payment.amount)}</span>
+          <span className="numeric font-medium">
+            {formatPaise(payment.amount)}
+          </span>
           <span className="text-muted-foreground">
             {formatDateTime(payment.receivedAt)}
           </span>
-          <span className="text-muted-foreground capitalize">
-            {payment.paymentMethod.replace("_", " ")}
+          <span className="text-muted-foreground">
+            {PAYMENT_METHOD_LABELS[payment.paymentMethod]}
           </span>
           {payment.transactionReference ? (
-            <span className="text-muted-foreground">
+            <span className="font-mono text-[0.6875rem] text-muted-foreground">
               {payment.transactionReference}
             </span>
           ) : null}
@@ -398,9 +450,7 @@ function PaymentHistory({ history }: { history: PaymentRow[] }) {
               Reversal entry
             </span>
           ) : payment.isReversed ? (
-            <span className="font-medium text-red-700 dark:text-red-300">
-              Reversed
-            </span>
+            <span className="font-medium text-destructive">Reversed</span>
           ) : null}
         </li>
       ))}

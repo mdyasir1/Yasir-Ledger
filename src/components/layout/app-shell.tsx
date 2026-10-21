@@ -6,6 +6,7 @@ import { LogOut } from "lucide-react";
 import { logout } from "@/app/(app)/actions";
 import { BrandMark } from "@/components/brand";
 import { OfflineBanner } from "@/components/offline-banner";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { appConfig } from "@/config/app";
 import { isActivePath, navigation } from "@/config/navigation";
@@ -15,8 +16,6 @@ import { cn } from "@/lib/utils";
  * The authenticated application shell.
  *
  * Desktop gets a fixed sidebar. Mobile gets a compact bottom navigation bar.
- * The current monthly round selector lives in the header and is added once the
- * round data layer exists.
  */
 export function AppShell({
   children,
@@ -32,18 +31,20 @@ export function AppShell({
       <OfflineBanner />
 
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r bg-card/40 lg:flex">
-        <div className="flex h-16 items-center gap-3 border-b px-5">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[15.5rem] flex-col border-r border-border/70 bg-sidebar lg:flex">
+        <div className="flex h-16 items-center gap-3 border-b border-border/70 px-5">
           <BrandMark size="sm" />
-          <div className="space-y-0.5">
-            <p className="text-sm font-semibold leading-tight">{appConfig.name}</p>
-            <p className="text-[11px] leading-tight text-muted-foreground">
+          <div className="space-y-px">
+            <p className="font-display text-sm leading-tight font-semibold tracking-[-0.015em]">
+              {appConfig.name}
+            </p>
+            <p className="text-[0.6875rem] leading-tight text-muted-foreground">
               {appConfig.schemeName} scheme
             </p>
           </div>
         </div>
 
-        <nav className="flex-1 space-y-1 p-3">
+        <nav className="flex-1 space-y-0.5 p-3">
           {navigation.map((item) => {
             const active = isActivePath(pathname, item.href);
             const Icon = item.icon;
@@ -53,22 +54,40 @@ export function AppShell({
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "group relative flex items-center gap-3 rounded-[0.7rem] px-3 py-2 text-[0.8125rem] font-medium transition-colors duration-150",
                   active
-                    ? "bg-primary/10 text-primary"
+                    ? "bg-primary/8 text-primary"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
               >
-                <Icon className="size-4 shrink-0" aria-hidden="true" />
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "absolute top-1/2 left-0 h-4 w-[2.5px] -translate-y-1/2 rounded-full bg-primary transition-opacity duration-150",
+                    active ? "opacity-100" : "opacity-0",
+                  )}
+                />
+                <Icon
+                  className={cn(
+                    "size-[1.05rem] shrink-0 transition-colors",
+                    active
+                      ? "text-primary"
+                      : "text-muted-foreground/80 group-hover:text-foreground",
+                  )}
+                  aria-hidden="true"
+                />
                 {item.label}
               </Link>
             );
           })}
         </nav>
 
-        <div className="border-t p-3">
-          <div className="mb-2 truncate px-3 text-xs text-muted-foreground">
-            {adminEmail}
+        <div className="border-t border-border/70 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2 px-3">
+            <span className="truncate text-[0.6875rem] text-muted-foreground">
+              {adminEmail}
+            </span>
+            <ThemeToggle />
           </div>
           <form action={logout}>
             <Button
@@ -85,24 +104,29 @@ export function AppShell({
       </aside>
 
       {/* Mobile top bar */}
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b bg-background/95 px-4 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-border/70 bg-background/85 px-4 backdrop-blur-md lg:hidden">
         <div className="flex items-center gap-2.5">
           <BrandMark size="sm" />
-          <p className="text-sm font-semibold">{appConfig.name}</p>
+          <p className="font-display text-sm font-semibold tracking-[-0.015em]">
+            {appConfig.name}
+          </p>
         </div>
-        <form action={logout}>
-          <Button type="submit" variant="ghost" size="icon" aria-label="Sign out">
-            <LogOut className="size-4" aria-hidden="true" />
-          </Button>
-        </form>
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <form action={logout}>
+            <Button type="submit" variant="ghost" size="icon-sm" aria-label="Sign out">
+              <LogOut className="size-4" aria-hidden="true" />
+            </Button>
+          </form>
+        </div>
       </header>
 
-      <div className="flex flex-1 flex-col lg:pl-60">
-        <main className="flex-1 px-4 pb-24 pt-4 sm:px-6 lg:px-8 lg:pb-10">
+      <div className="flex flex-1 flex-col lg:pl-[15.5rem]">
+        <main className="flex-1 px-4 pb-28 pt-5 sm:px-6 lg:px-9 lg:pb-12 lg:pt-7">
           {children}
         </main>
 
-        <footer className="hidden border-t px-6 py-4 text-xs text-muted-foreground lg:block">
+        <footer className="hidden border-t border-border/70 px-9 py-5 text-[0.6875rem] text-muted-foreground lg:block">
           {appConfig.name} · {appConfig.schemeName} contribution scheme ·{" "}
           {appConfig.ownerCredit}
         </footer>
@@ -111,7 +135,7 @@ export function AppShell({
       {/* Mobile bottom navigation */}
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-border/70 bg-background/88 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
       >
         {navigation.map((item) => {
           const active = isActivePath(pathname, item.href);
@@ -122,11 +146,11 @@ export function AppShell({
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex min-h-14 flex-col items-center justify-center gap-0.5 px-0.5 text-[10px] font-medium",
+                "flex min-h-14 flex-col items-center justify-center gap-1 px-0.5 text-[0.625rem] font-medium transition-colors",
                 active ? "text-primary" : "text-muted-foreground",
               )}
             >
-              <Icon className="size-5" aria-hidden="true" />
+              <Icon className="size-[1.15rem]" aria-hidden="true" />
               <span className="truncate">{item.shortLabel}</span>
             </Link>
           );

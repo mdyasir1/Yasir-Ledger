@@ -44,33 +44,46 @@ export function MembersView({ members }: { members: MemberRow[] }) {
       {/* Mobile: compact cards */}
       <div className="space-y-2 lg:hidden">
         {members.map((member) => (
-          <Card key={member.id} className="shadow-none">
-            <CardContent className="p-3">
+          <Card key={member.id} className="shadow-card">
+            <CardContent className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate font-medium">{member.fullName}</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="truncate text-[0.875rem] font-medium">
+                    {member.fullName}
+                  </p>
+                  <p className="numeric mt-0.5 text-[0.75rem] text-muted-foreground">
                     {formatPaise(member.defaultContributionAmount)} per month
                     {member.phoneNumber ? ` · ${member.phoneNumber}` : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
-                  {!member.isActive ? <Badge variant="secondary">Inactive</Badge> : null}
-                  <EditMemberButton member={member} onOpen={() => setEditing(member)} />
+                  {!member.isActive ? (
+                    <Badge variant="secondary">Inactive</Badge>
+                  ) : null}
+                  <EditMemberButton
+                    member={member}
+                    onOpen={() => setEditing(member)}
+                  />
                 </div>
               </div>
-              <dl className="mt-2 grid grid-cols-3 gap-2 text-sm">
+              <dl className="mt-3 grid grid-cols-3 gap-3 border-t border-border/70 pt-3 text-[0.8125rem]">
                 <div>
-                  <dt className="text-xs text-muted-foreground">Collected</dt>
-                  <dd className="tabular-nums">{formatPaise(member.collectedTotal)}</dd>
+                  <dt className="eyebrow">Collected</dt>
+                  <dd className="numeric mt-1 font-medium">
+                    {formatPaise(member.collectedTotal)}
+                  </dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-muted-foreground">Outstanding</dt>
-                  <dd className="tabular-nums">{formatPaise(member.outstandingTotal)}</dd>
+                  <dt className="eyebrow">Outstanding</dt>
+                  <dd className="numeric mt-1 font-medium">
+                    {formatPaise(member.outstandingTotal)}
+                  </dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-muted-foreground">Payments</dt>
-                  <dd className="tabular-nums">{member.paymentCount}</dd>
+                  <dt className="eyebrow">Payments</dt>
+                  <dd className="numeric mt-1 font-medium">
+                    {member.paymentCount}
+                  </dd>
                 </div>
               </dl>
             </CardContent>
@@ -79,10 +92,10 @@ export function MembersView({ members }: { members: MemberRow[] }) {
       </div>
 
       {/* Desktop: table */}
-      <div className="hidden rounded-lg border lg:block">
+      <div className="hidden overflow-hidden rounded-2xl bg-card shadow-card ring-1 ring-foreground/[0.06] lg:block">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead>Member</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead className="text-right">Default</TableHead>
@@ -94,35 +107,40 @@ export function MembersView({ members }: { members: MemberRow[] }) {
           </TableHeader>
           <TableBody>
             {members.map((member) => (
-              <TableRow key={member.id}>
+              <TableRow
+                key={member.id}
+                className="border-border/60 transition-colors hover:bg-muted/25"
+              >
                 <TableCell className="font-medium">
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-2 text-[0.8125rem]">
                     {member.fullName}
                     {!member.isActive ? (
                       <Badge variant="secondary">Inactive</Badge>
                     ) : null}
                   </span>
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {member.phoneNumber ?? "—"}
+                <TableCell className="text-[0.8125rem] text-muted-foreground">
+                  {member.phoneNumber ?? "-"}
                 </TableCell>
-                <TableCell className="text-right tabular-nums">
+                <TableCell className="numeric text-right text-[0.8125rem]">
                   {formatPaise(member.defaultContributionAmount)}
                 </TableCell>
-                <TableCell className="text-right tabular-nums">
+                <TableCell className="numeric text-right text-[0.8125rem]">
                   {formatPaise(member.collectedTotal)}
                 </TableCell>
-                <TableCell className="text-right tabular-nums">
+                <TableCell className="numeric text-right text-[0.8125rem]">
                   {member.outstandingTotal > 0 ? (
-                    <span className="font-medium text-red-600 dark:text-red-400">
+                    <span className="font-medium text-destructive">
                       {formatPaise(member.outstandingTotal)}
                     </span>
                   ) : (
-                    "—"
+                    <span className="text-muted-foreground/50">-</span>
                   )}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {member.lastPaymentAt ? formatDate(member.lastPaymentAt) : "—"}
+                <TableCell className="text-[0.8125rem] text-muted-foreground">
+                  {member.lastPaymentAt
+                    ? formatDate(member.lastPaymentAt)
+                    : "-"}
                 </TableCell>
                 <TableCell className="text-right">
                   <EditMemberButton
@@ -138,7 +156,7 @@ export function MembersView({ members }: { members: MemberRow[] }) {
 
       {editing ? (
         <MemberDialog
-          open={editing !== null}
+          open
           onOpenChange={(open) => {
             if (!open) setEditing(null);
           }}
@@ -146,11 +164,7 @@ export function MembersView({ members }: { members: MemberRow[] }) {
         />
       ) : null}
 
-      <MemberDialog
-        open={adding}
-        onOpenChange={setAdding}
-        member={null}
-      />
+      <MemberDialog open={adding} onOpenChange={setAdding} member={null} />
     </div>
   );
 }

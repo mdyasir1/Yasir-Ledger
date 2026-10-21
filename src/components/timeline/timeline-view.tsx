@@ -91,7 +91,9 @@ function PayoutEditor({
 
         <form action={formAction} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="plannedRupees">Planned amount</Label>
+            <Label htmlFor="plannedRupees" className="text-[0.8125rem]">
+              Planned amount
+            </Label>
             <Input
               id="plannedRupees"
               name="plannedRupees"
@@ -105,7 +107,9 @@ function PayoutEditor({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="actualRupees">Amount actually disbursed</Label>
+            <Label htmlFor="actualRupees" className="text-[0.8125rem]">
+              Amount actually disbursed
+            </Label>
             <Input
               id="actualRupees"
               name="actualRupees"
@@ -123,7 +127,9 @@ function PayoutEditor({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
+            <Label htmlFor="status" className="text-[0.8125rem]">
+              Status
+            </Label>
             <Select name="status" defaultValue={recipient.status}>
               <SelectTrigger id="status" className="w-full">
                 <SelectValue>
@@ -143,7 +149,9 @@ function PayoutEditor({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="paidAt">Paid on</Label>
+            <Label htmlFor="paidAt" className="text-[0.8125rem]">
+              Paid on
+            </Label>
             <Input
               id="paidAt"
               name="paidAt"
@@ -155,7 +163,9 @@ function PayoutEditor({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="transactionReference">Reference (optional)</Label>
+            <Label htmlFor="transactionReference" className="text-[0.8125rem]">
+              Reference (optional)
+            </Label>
             <Input
               id="transactionReference"
               name="transactionReference"
@@ -165,7 +175,9 @@ function PayoutEditor({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="note">Note (optional)</Label>
+            <Label htmlFor="note" className="text-[0.8125rem]">
+              Note (optional)
+            </Label>
             <Input id="note" name="note" defaultValue={recipient.note ?? ""} maxLength={500} />
           </div>
 
@@ -222,7 +234,9 @@ function AddRecipientDialog({
 
         <form action={formAction} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="memberId">Member</Label>
+            <Label htmlFor="memberId" className="text-[0.8125rem]">
+              Member
+            </Label>
             <Select name="memberId">
               <SelectTrigger id="memberId" className="w-full">
                 <SelectValue>Choose a member</SelectValue>
@@ -238,7 +252,9 @@ function AddRecipientDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="plannedRupees">Planned amount</Label>
+            <Label htmlFor="plannedRupees" className="text-[0.8125rem]">
+              Planned amount
+            </Label>
             <Input
               id="plannedRupees"
               name="plannedRupees"
@@ -289,17 +305,19 @@ export function TimelineView({
       <div className="space-y-3">
         {rows.map((row) => {
           return (
-            <Card key={row.id} className="shadow-none">
-              <CardContent className="p-4">
+            <Card key={row.id} className="shadow-card">
+              <CardContent className="p-4 sm:p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-base font-semibold">{row.roundName}</h2>
+                      <h2 className="font-display text-[1.05rem] font-semibold tracking-[-0.02em]">
+                        {row.roundName}
+                      </h2>
                       <Badge variant={row.status === "open" ? "secondary" : "outline"}>
                         {row.status === "open" ? "Open" : "Closed"}
                       </Badge>
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="numeric mt-1.5 text-[0.8125rem] text-muted-foreground">
                       {formatPaise(row.collectedTotal)} collected ·{" "}
                       {formatPaise(row.outstandingTotal)} outstanding ·{" "}
                       {row.paidCount} paid, {row.partiallyPaidCount} partial,{" "}
@@ -314,9 +332,9 @@ export function TimelineView({
                 </div>
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-lg border">
-                    <div className="flex items-center justify-between border-b px-3 py-2">
-                      <p className="text-sm font-medium">Recipients</p>
+                  <div className="overflow-hidden rounded-xl border border-border/70">
+                    <div className="flex items-center justify-between border-b border-border/70 bg-muted/40 px-3.5 py-2.5">
+                      <p className="text-[0.8125rem] font-medium">Recipients</p>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -335,13 +353,13 @@ export function TimelineView({
                         {row.recipients.map((recipient) => (
                           <li
                             key={recipient.id}
-                            className="flex items-center justify-between gap-2 px-3 py-2"
+                            className="flex items-center justify-between gap-2 px-3.5 py-2.5"
                           >
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-medium">
+                              <p className="truncate text-[0.8125rem] font-medium">
                                 {recipient.fullName}
                               </p>
-                              <p className="text-xs text-muted-foreground">
+                              <p className="numeric text-[0.6875rem] text-muted-foreground">
                                 Planned {formatPaise(recipient.plannedAmount)}
                                 {recipient.actualAmount !== null
                                   ? ` · Paid ${formatPaise(recipient.actualAmount)}`
@@ -386,46 +404,46 @@ export function TimelineView({
                         ))}
                       </ul>
                     )}
-                    <div className="flex justify-between border-t px-3 py-2 text-sm">
+                    <div className="flex justify-between border-t border-border/70 bg-muted/30 px-3.5 py-2.5 text-[0.8125rem]">
                       <span className="text-muted-foreground">Planned total</span>
-                      <span className="font-semibold tabular-nums">
+                      <span className="numeric font-semibold">
                         {formatPaise(row.plannedTotal)}
                       </span>
                     </div>
                     {row.actualTotal > 0 ? (
-                      <div className="flex justify-between border-t px-3 py-2 text-sm">
+                      <div className="flex justify-between border-t border-border/70 bg-muted/30 px-3.5 py-2.5 text-[0.8125rem]">
                         <span className="text-muted-foreground">Disbursed</span>
-                        <span className="font-semibold tabular-nums">
+                        <span className="numeric font-semibold">
                           {formatPaise(row.actualTotal)}
                         </span>
                       </div>
                     ) : null}
                   </div>
 
-                  <div className="rounded-lg border p-3">
-                    <p className="text-sm font-medium">Collection</p>
-                    <dl className="mt-2 space-y-1.5 text-sm">
+                  <div className="rounded-xl border border-border/70 p-4">
+                    <p className="text-[0.8125rem] font-medium">Collection</p>
+                    <dl className="mt-3 space-y-2 text-[0.8125rem]">
                       <div className="flex justify-between">
                         <dt className="text-muted-foreground">Expected</dt>
-                        <dd className="tabular-nums">
+                        <dd className="numeric">
                           {formatPaise(row.expectedTotal)}
                         </dd>
                       </div>
                       <div className="flex justify-between">
                         <dt className="text-muted-foreground">Collected</dt>
-                        <dd className="tabular-nums">
+                        <dd className="numeric">
                           {formatPaise(row.collectedTotal)}
                         </dd>
                       </div>
                       <div className="flex justify-between">
                         <dt className="text-muted-foreground">Outstanding</dt>
-                        <dd className="tabular-nums">
+                        <dd className="numeric font-medium text-destructive">
                           {formatPaise(row.outstandingTotal)}
                         </dd>
                       </div>
                       <div className="flex justify-between">
                         <dt className="text-muted-foreground">Target</dt>
-                        <dd className="tabular-nums">
+                        <dd className="numeric">
                           {formatPaise(row.collectionTarget)}
                         </dd>
                       </div>
