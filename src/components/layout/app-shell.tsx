@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { logout } from "@/app/(app)/actions";
 import { BrandMark } from "@/components/brand";
+import { OfflineBanner } from "@/components/offline-banner";
 import { Button } from "@/components/ui/button";
 import { appConfig } from "@/config/app";
 import { isActivePath, navigation } from "@/config/navigation";
@@ -28,6 +29,8 @@ export function AppShell({
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
+      <OfflineBanner />
+
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r bg-card/40 lg:flex">
         <div className="flex h-16 items-center gap-3 border-b px-5">

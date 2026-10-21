@@ -16,6 +16,21 @@
 > configuration the owner must supply. Read Section 25 alongside the rest of this
 > document — it is the authoritative record of what was actually agreed.
 
+### Implementation status
+
+| Phase | Scope | State |
+|---|---|---|
+| 1 | Project setup, auth foundation, data layer | Complete |
+| 2 | Database, RLS, seed, ₹1,00,000 gate | Complete — gate passed |
+| 3 | Financial engine, payment recording, reversals | Complete — 99 tests passing |
+| 4 | The six screens, connected to live records | Complete |
+| 5 | Search, filters, reminders, contact links, CSV export, PWA | Complete |
+| 6 | Lint, types, tests, build, documentation | Complete |
+
+Verification run at the end of the build: `eslint` 0 problems, `tsc --noEmit`
+clean, 99 tests passing, `next build` succeeding, the end-to-end HTTP check
+passing, and the seeded scheme verified against the live database.
+
 ---
 
 ## 1. Project Overview
@@ -1124,3 +1139,24 @@ they are not read from `.env.local` in production.
    `pg_dump` schedule and the restore procedure.
 5. **The seed's payout plan is a starting point.** Review the Section 6.1 table in the app's
    Timeline screen and edit `planned_amount` before the first disbursement.
+6. **The Supabase project password is known outside the deployment.** It has been shared in a
+   chat transcript. Rotate it from the Supabase dashboard and update `DATABASE_URL` and
+   `DIRECT_URL` in `.env.local` and in the Vercel environment variables.
+7. **The physical repository folder is still named `Cheeti-Manager`.** The application, the
+   package and the documentation all use *Yasir Ledger*; only the folder on disk keeps the old
+   name. It could not be renamed while the editor held it open.
+
+### 25.5 What was verified, and how
+
+| Claim | How it was verified |
+|---|---|
+| The 17 contributions total ₹1,00,000 | `npm run db:verify` against the live database — 10,000,000 paise, and every round's obligations total the same |
+| The seed is idempotent | The seed was run twice; the row counts did not change. Asserted again in the integration tests. |
+| No payment history is fabricated | The `payments` table contains zero rows after every build step. |
+| The publishable key cannot reach the data | `GET`, `POST` and `DELETE` on all eight tables return 401. Checked by `npm run db:check` and by the integration tests. |
+| The audit trail cannot be rewritten | The integration tests assert that `UPDATE` and `DELETE` on `audit_logs` are both rejected. |
+| Reversed payments leave the totals | Integration test: after a reversal the collected total is 0 and both entries remain in the ledger. |
+| A duplicate submission is not recorded twice | Integration test: the same idempotency key twice produces one row and returns the original payment id. |
+| The route protection works | The end-to-end check replays the real login form: unauthenticated → 307, wrong password → no cookie, correct password → cookie, then every screen renders. |
+| The tests do not touch the real data | Every integration test runs inside a rolled-back transaction; the row counts and the audit trail were checked afterwards and were unchanged. |
+| The schema and the code agree | `prisma db pull` shows no drift between `prisma/schema.prisma` and the migrated tables. |
